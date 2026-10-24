@@ -25,6 +25,8 @@ export default function HomeScreen() {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
+  const categoryListRef = useRef<FlatList<Category> | null>(null);
+  const tagListRef = useRef<FlatList<string> | null>(null);
 
   // 响应式布局配置
   const responsiveConfig = useResponsiveLayout();
@@ -150,7 +152,7 @@ export default function HomeScreen() {
     }
   };
 
-  const renderCategory = ({ item }: { item: Category }) => {
+  const renderCategory = ({ item, index }: { item: Category; index: number }) => {
     const isSelected = selectedCategory?.title === item.title;
     return (
       <StyledButton
@@ -159,6 +161,9 @@ export default function HomeScreen() {
         isSelected={isSelected}
         style={dynamicStyles.categoryButton}
         textStyle={dynamicStyles.categoryText}
+        onFocus={() => {
+          categoryListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+        }}
       />
     );
   };
@@ -288,6 +293,7 @@ export default function HomeScreen() {
       {/* 分类选择器 */}
       <View style={dynamicStyles.categoryContainer}>
         <FlatList
+          ref={categoryListRef}
           data={categories}
           renderItem={renderCategory}
           keyExtractor={(item) => item.title}
@@ -301,18 +307,22 @@ export default function HomeScreen() {
       {selectedCategory && selectedCategory.tags && (
         <View style={dynamicStyles.categoryContainer}>
           <FlatList
+            ref={tagListRef}
             data={selectedCategory.tags}
             renderItem={({ item, index }) => {
               const isSelected = selectedTag === item;
               return (
                 <StyledButton
-                  hasTVPreferredFocus={index === 0}
+                  hasTVPreferredFocus={selectedTag === null && index === 0}
                   text={item}
                   onPress={() => handleTagSelect(item)}
                   isSelected={isSelected}
                   style={dynamicStyles.categoryButton}
                   textStyle={dynamicStyles.categoryText}
                   variant="ghost"
+                  onFocus={() => {
+                    tagListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+                  }}
                 />
               );
             }}
