@@ -10,7 +10,7 @@ import { Search, Settings, LogOut, Heart } from "lucide-react-native";
 import { StyledButton } from "@/components/StyledButton";
 import useHomeStore, { RowItem, Category } from "@/stores/homeStore";
 import useAuthStore from "@/stores/authStore";
-import CustomScrollView from "@/components/CustomScrollView";
+import CustomScrollView, { CustomScrollViewHandle } from "@/components/CustomScrollView";
 import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 import { getCommonResponsiveStyles } from "@/utils/ResponsiveStyles";
 import ResponsiveNavigation from "@/components/navigation/ResponsiveNavigation";
@@ -27,6 +27,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const categoryListRef = useRef<FlatList<Category> | null>(null);
   const tagListRef = useRef<FlatList<string> | null>(null);
+  const contentScrollRef = useRef<CustomScrollViewHandle>(null);
 
   // 响应式布局配置
   const responsiveConfig = useResponsiveLayout();
@@ -168,7 +169,7 @@ export default function HomeScreen() {
     );
   };
 
-  const renderContentItem = ({ item }: { item: RowItem; index: number }) => (
+  const renderContentItem = ({ item, index }: { item: RowItem; index: number }) => (
     <VideoCard
       id={item.id}
       source={item.source}
@@ -183,6 +184,10 @@ export default function HomeScreen() {
       totalEpisodes={item.totalEpisodes}
       api={api}
       onRecordDeleted={fetchInitialData}
+      onFocus={() => {
+        // 哔哩哔哩TV版形式：焦点所在行滚动到屏幕垂直居中
+        contentScrollRef.current?.scrollRowToCenter(Math.floor(index / responsiveConfig.columns));
+      }}
     />
   );
 
@@ -268,13 +273,13 @@ export default function HomeScreen() {
       paddingHorizontal: deviceType === "tv" ? spacing * 2 : spacing,
     },
     categoryButton: {
-      paddingHorizontal: deviceType === "tv" ? spacing / 4 : spacing / 2,
-      paddingVertical: spacing / 2,
+      paddingHorizontal: deviceType === "tv" ? spacing * 0.75 : spacing / 2,
+      paddingVertical: deviceType === "tv" ? 12 : spacing / 2,
       borderRadius: deviceType === "mobile" ? 6 : 8,
       marginHorizontal: deviceType === "tv" ? spacing / 4 : spacing / 2, // TV端使用更小的间距
     },
     categoryText: {
-      fontSize: deviceType === "mobile" ? 14 : 16,
+      fontSize: deviceType === "mobile" ? 14 : deviceType === "tv" ? 19 : 16,
       fontWeight: "500",
     },
     contentContainer: {
@@ -367,6 +372,7 @@ export default function HomeScreen() {
       ) : (
         <Animated.View style={[dynamicStyles.contentContainer, { opacity: fadeAnim }]}>
           <CustomScrollView
+            ref={contentScrollRef}
             data={contentData}
             renderItem={renderContentItem}
             loading={loading}

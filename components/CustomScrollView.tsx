@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState, useEffect } from "react";
+import React, { useCallback, useRef, useState, useEffect, useImperativeHandle } from "react";
 import { View, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, BackHandler } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
@@ -17,7 +17,12 @@ interface CustomScrollViewProps {
   ListFooterComponent?: React.ComponentType<any> | React.ReactElement | null;
 }
 
-const CustomScrollView: React.FC<CustomScrollViewProps> = ({
+// 对外暴露的能力：TV 端焦点行居中滚动（哔哩哔哩TV版形式）
+export interface CustomScrollViewHandle {
+  scrollRowToCenter: (rowIndex: number) => void;
+}
+
+const CustomScrollView = React.forwardRef<CustomScrollViewHandle, CustomScrollViewProps>(({
   data,
   renderItem,
   numColumns,
@@ -28,13 +33,28 @@ const CustomScrollView: React.FC<CustomScrollViewProps> = ({
   loadMoreThreshold = 200,
   emptyMessage = "暂无内容",
   ListFooterComponent,
-}) => {
+}, ref) => {
   const scrollViewRef = useRef<ScrollView>(null);
   const firstCardRef = useRef<any>(null); // <--- 新增
   const [showScrollToTop, setShowScrollToTop] = useState(false);
+  const [scrollViewHeight, setScrollViewHeight] = useState(0);
+  const rowLayouts = useRef<Record<number, { y: number; h: number }>>({});
   const responsiveConfig = useResponsiveLayout();
   const commonStyles = getCommonResponsiveStyles(responsiveConfig);
   const { deviceType } = responsiveConfig;
+
+  // TV 端：把指定行滚动到屏幕垂直居中位置
+  const scrollRowToCenter = useCallback(
+    (rowIndex: number) => {
+      const layout = rowLayouts.current[rowIndex];
+      if (!layout || scrollViewHeight <= 0) return;
+      const targetY = Math.max(0, layout.y + layout.h / 2 - scrollViewHeight / 2);
+      scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
+    },
+    [scrollViewHeight]
+  );
+
+  useImperativeHandle(ref, () => ({ scrollRowToCenter }), [scrollRowToCenter]);
 
   // 添加返回键处理逻辑
   useEffect(() => {
@@ -173,6 +193,7 @@ const CustomScrollView: React.FC<CustomScrollViewProps> = ({
         onScroll={handleScroll}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={responsiveConfig.deviceType !== 'tv'}
+        onLayout={(e) => setScrollViewHeight(e.nativeEvent.layout.height)}
       >
         {data.length > 0 ? (
           <>
@@ -181,7 +202,16 @@ const CustomScrollView: React.FC<CustomScrollViewProps> = ({
               const rowStyle = isFullRow ? dynamicStyles.fullRowContainer : dynamicStyles.partialRowContainer;
 
               return (
-                <View key={rowIndex} style={[dynamicStyles.rowContainer, rowStyle]}>
+                <View
+                  key={rowIndex}
+                  style={[dynamicStyles.rowContainer, rowStyle]}
+                  onLayout={(e) => {
+                    rowLayouts.current[rowIndex] = {
+                      y: e.nativeEvent.layout.y,
+                      h: e.nativeEvent.layout.height,
+                    };
+                  }}
+                >
                   {row.map((item, itemIndex) => {
                     const actualIndex = rowIndex * effectiveColumns + itemIndex;
                     const isLastItemInPartialRow = !isFullRow && itemIndex === row.length - 1;
@@ -220,6 +250,8 @@ const CustomScrollView: React.FC<CustomScrollViewProps> = ({
       )}
     </View>
   );
-};
+});
+
+CustomScrollView.displayName = "CustomScrollView";
 
 export default CustomScrollView;

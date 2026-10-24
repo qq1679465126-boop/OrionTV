@@ -83,7 +83,7 @@ const VideoCard = forwardRef<View, VideoCardProps>(
     const handleFocus = useCallback(() => {
       setIsFocused(true);
       Animated.spring(scale, {
-        toValue: 1.08,
+        toValue: 1.12,
         damping: 15,
         stiffness: 200,
         useNativeDriver: true,

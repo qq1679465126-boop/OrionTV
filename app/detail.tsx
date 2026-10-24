@@ -213,7 +213,15 @@ export default function DetailScreen() {
                 <ThemedText style={dynamicStyles.metaText}>{detail.year}</ThemedText>
                 <ThemedText style={dynamicStyles.metaText}>{detail.type_name}</ThemedText>
               </View>
-
+              {/* 哔哩哔哩TV版形式：醒目的立即播放大按钮，默认焦点 */}
+              <StyledButton
+                text="立即播放"
+                variant="primary"
+                hasTVPreferredFocus
+                onPress={() => handlePlay(0)}
+                style={dynamicStyles.playNowButton}
+                textStyle={dynamicStyles.playNowText}
+              />
               <ScrollView style={dynamicStyles.descriptionScrollView}>
                 <ThemedText style={dynamicStyles.description}>{detail.desc}</ThemedText>
               </ScrollView>
@@ -233,7 +241,6 @@ export default function DetailScreen() {
                     <StyledButton
                       key={index}
                       onPress={() => setDetail(item)}
-                      hasTVPreferredFocus={index === 0}
                       isSelected={isSelected}
                       style={dynamicStyles.sourceButton}
                     >
@@ -373,6 +380,17 @@ const createResponsiveStyles = (deviceType: string, spacing: number) => {
       color: "#aaa",
       marginRight: spacing / 2,
       fontSize: isTV ? 18 : isMobile ? 12 : 14,
+    },
+    playNowButton: {
+      minHeight: isTV ? 64 : 48,
+      paddingHorizontal: isTV ? 40 : 24,
+      alignSelf: "flex-start",
+      marginTop: isTV ? 8 : 4,
+      marginBottom: spacing / 2,
+    },
+    playNowText: {
+      fontSize: isTV ? 20 : 16,
+      fontWeight: "bold",
     },
     description: {
       fontSize: isTV ? 18 : isMobile ? 13 : 14,
