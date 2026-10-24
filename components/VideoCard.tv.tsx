@@ -83,7 +83,7 @@ const VideoCard = forwardRef<View, VideoCardProps>(
     const handleFocus = useCallback(() => {
       setIsFocused(true);
       Animated.spring(scale, {
-        toValue: 1.05,
+        toValue: 1.08,
         damping: 15,
         stiffness: 200,
         useNativeDriver: true,
@@ -168,6 +168,9 @@ const VideoCard = forwardRef<View, VideoCardProps>(
           <View style={styles.card}>
             <Image source={{ uri: api.getImageProxyUrl(poster) }} style={styles.poster} />
             {isFocused && (
+              <View style={styles.focusBorder} />
+            )}
+            {isFocused && (
               <View style={styles.overlay}>
                 {isContinueWatching && (
                   <View style={styles.continueWatchingBadge}>
@@ -203,7 +206,9 @@ const VideoCard = forwardRef<View, VideoCardProps>(
             )}
           </View>
           <View style={styles.infoContainer}>
-            <ThemedText numberOfLines={1}>{title}</ThemedText>
+            <ThemedText numberOfLines={1} style={isFocused ? styles.titleFocused : undefined}>
+              {title}
+            </ThemedText>
             {isContinueWatching && (
               <View style={styles.infoRow}>
                 <ThemedText style={styles.continueLabel}>
@@ -250,12 +255,17 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.3)",
-    borderColor: Colors.dark.primary,
-    borderWidth: 2,
+    backgroundColor: "rgba(0,0,0,0.15)",
     borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
+  },
+  focusBorder: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: 4,
+    borderColor: "#ffffff",
+    borderRadius: 8,
+    zIndex: 10,
   },
   buttonRow: {
     position: "absolute",
@@ -306,6 +316,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     textAlign: "center",
+  },
+  titleFocused: {
+    color: Colors.dark.primary,
+    fontWeight: "bold",
   },
   yearBadge: {
     position: "absolute",
