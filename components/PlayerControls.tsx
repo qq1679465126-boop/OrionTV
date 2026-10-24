@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable } from "react-native";
 import { Pause, Play, SkipForward, List, Tv, ArrowDownToDot, ArrowUpFromDot, Gauge } from "lucide-react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { MediaButton } from "@/components/MediaButton";
+import { Colors } from "@/constants/Colors";
 
 import usePlayerStore from "@/stores/playerStore";
 import useDetailStore from "@/stores/detailStore";
@@ -80,7 +81,7 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({ showControls, se
           <Pressable style={styles.progressBarTouchable} />
         </View>
 
-        <ThemedText style={{ color: "white", marginTop: 5 }}>
+        <ThemedText style={{ color: "white", marginTop: 8, fontSize: 20, fontWeight: "bold" }}>
           {status?.isLoaded
             ? `${formatTime(status.positionMillis)} / ${formatTime(status.durationMillis || 0)}`
             : "00:00 / 00:00"}
@@ -88,35 +89,35 @@ export const PlayerControls: React.FC<PlayerControlsProps> = ({ showControls, se
 
         <View style={styles.bottomControls}>
           <MediaButton onPress={setIntroEndTime} timeLabel={introEndTime ? formatTime(introEndTime) : undefined}>
-            <ArrowDownToDot color="white" size={24} />
+            <ArrowDownToDot color="white" size={28} />
           </MediaButton>
 
           <MediaButton onPress={togglePlayPause} hasTVPreferredFocus={showControls}>
             {status?.isLoaded && status.isPlaying ? (
-              <Pause color="white" size={24} />
+              <Pause color="white" size={28} />
             ) : (
-              <Play color="white" size={24} />
+              <Play color="white" size={28} />
             )}
           </MediaButton>
 
           <MediaButton onPress={onPlayNextEpisode} disabled={!hasNextEpisode}>
-            <SkipForward color={hasNextEpisode ? "white" : "#666"} size={24} />
+            <SkipForward color={hasNextEpisode ? "white" : "#666"} size={28} />
           </MediaButton>
 
           <MediaButton onPress={setOutroStartTime} timeLabel={outroStartTime ? formatTime(outroStartTime) : undefined}>
-            <ArrowUpFromDot color="white" size={24} />
+            <ArrowUpFromDot color="white" size={28} />
           </MediaButton>
 
           <MediaButton onPress={() => setShowEpisodeModal(true)}>
-            <List color="white" size={24} />
+            <List color="white" size={28} />
           </MediaButton>
 
           <MediaButton onPress={() => setShowSpeedModal(true)} timeLabel={playbackRate !== 1.0 ? `${playbackRate}x` : undefined}>
-            <Gauge color="white" size={24} />
+            <Gauge color="white" size={28} />
           </MediaButton>
 
           <MediaButton onPress={() => setShowSourceModal(true)}>
-            <Tv color="white" size={24} />
+            <Tv color="white" size={28} />
           </MediaButton>
         </View>
       </View>
@@ -129,7 +130,8 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0, 0, 0, 0.4)",
     justifyContent: "space-between",
-    padding: 20,
+    // TV overscan 安全区：远离屏幕边缘，避免被电视裁切
+    padding: 40,
   },
   topControls: {
     flexDirection: "row",
@@ -138,7 +140,7 @@ const styles = StyleSheet.create({
   },
   controlTitle: {
     color: "white",
-    fontSize: 16,
+    fontSize: 24,
     fontWeight: "bold",
     flex: 1,
     textAlign: "center",
@@ -152,13 +154,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    gap: 10,
+    gap: 16,
     flexWrap: "wrap",
-    marginTop: 15,
+    marginTop: 20,
   },
   progressBarContainer: {
     width: "100%",
-    height: 8,
+    height: 10,
     position: "relative",
     marginTop: 10,
   },
@@ -166,16 +168,16 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 0,
     right: 0,
-    height: 8,
+    height: 10,
     backgroundColor: "rgba(255, 255, 255, 0.3)",
-    borderRadius: 4,
+    borderRadius: 5,
   },
   progressBarFilled: {
     position: "absolute",
     left: 0,
-    height: 8,
-    backgroundColor: "#fff",
-    borderRadius: 4,
+    height: 10,
+    backgroundColor: Colors.dark.primary,
+    borderRadius: 5,
   },
   progressBarTouchable: {
     position: "absolute",

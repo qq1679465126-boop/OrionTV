@@ -10,11 +10,14 @@ import { LoginCredentialsManager } from "@/services/storage";
 import { ThemedView } from "./ThemedView";
 import { ThemedText } from "./ThemedText";
 import { StyledButton } from "./StyledButton";
+import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 
 const LoginModal = () => {
   const { isLoginModalVisible, hideLoginModal, checkLoginStatus } = useAuthStore();
   const { serverConfig, apiBaseUrl } = useSettingsStore();
   const { refreshPlayRecords } = useHomeStore();
+  const { deviceType } = useResponsiveLayout();
+  const isTV = deviceType === "tv";
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -145,13 +148,13 @@ const LoginModal = () => {
       onRequestClose={hideLoginModal}
     >
       <View style={styles.overlay}>
-        <ThemedView style={styles.container}>
-          <ThemedText style={styles.title}>需要登录</ThemedText>
-          <ThemedText style={styles.subtitle}>服务器需要验证您的身份</ThemedText>
+        <ThemedView style={[styles.container, isTV && { maxWidth: 480, padding: 32 }]}>
+          <ThemedText style={[styles.title, isTV && { fontSize: 28 }]}>需要登录</ThemedText>
+          <ThemedText style={[styles.subtitle, isTV && { fontSize: 19 }]}>服务器需要验证您的身份</ThemedText>
           {serverConfig?.StorageType !== "localstorage" && (
             <TextInput
               ref={usernameInputRef}
-              style={styles.input}
+              style={[styles.input, isTV && { height: 60, fontSize: 19 }]}
               placeholder="请输入用户名"
               placeholderTextColor="#888"
               value={username}
@@ -163,7 +166,7 @@ const LoginModal = () => {
           )}
           <TextInput
             ref={passwordInputRef}
-            style={styles.input}
+            style={[styles.input, isTV && { height: 60, fontSize: 19 }]}
             placeholder="请输入密码"
             placeholderTextColor="#888"
             secureTextEntry
@@ -176,7 +179,7 @@ const LoginModal = () => {
             text={isLoading ? "" : "登录"}
             onPress={handleLogin}
             disabled={isLoading}
-            style={styles.button}
+            style={[styles.button, isTV && { height: 60 }]}
             hasTVPreferredFocus={!serverConfig || serverConfig.StorageType === "localstorage"}
           >
             {isLoading && <ActivityIndicator color="#fff" />}

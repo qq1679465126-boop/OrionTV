@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import { View, StyleSheet, Alert, Platform } from "react-native";
-import { useTVEventHandler } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -47,10 +46,8 @@ export default function SettingsScreen() {
 
   const [hasChanges, setHasChanges] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [currentFocusIndex, setCurrentFocusIndex] = useState(0);
   const [currentSection, setCurrentSection] = useState<string | null>(null);
 
-  const saveButtonRef = useRef<any>(null);
   const apiSectionRef = useRef<any>(null);
   const liveStreamSectionRef = useRef<any>(null);
 
@@ -164,7 +161,6 @@ export default function SettingsScreen() {
         <RemoteInputSection
           onChanged={markAsChanged}
           onFocus={() => {
-            setCurrentFocusIndex(0);
             setCurrentSection("remote");
           }}
         />
@@ -178,7 +174,6 @@ export default function SettingsScreen() {
           onChanged={markAsChanged}
           hideDescription={deviceType === "mobile"}
           onFocus={() => {
-            setCurrentFocusIndex(1);
             setCurrentSection("api");
           }}
         />
@@ -191,7 +186,6 @@ export default function SettingsScreen() {
           ref={liveStreamSectionRef}
           onChanged={markAsChanged}
           onFocus={() => {
-            setCurrentFocusIndex(2);
             setCurrentSection("livestream");
           }}
         />
@@ -206,27 +200,8 @@ export default function SettingsScreen() {
   /** 这里得到的 sections 已经是 SectionItem[]（没有 false） */
   const sections: SectionItem[] = rawSections.filter(isSectionItem);
 
-
-  // TV遥控器事件处理 - 仅在TV设备上启用
-  const handleTVEvent = React.useCallback(
-    (event: any) => {
-      if (deviceType !== "tv") return;
-
-      if (event.eventType === "down") {
-        const nextIndex = Math.min(currentFocusIndex + 1, sections.length);
-        setCurrentFocusIndex(nextIndex);
-        if (nextIndex === sections.length) {
-          saveButtonRef.current?.focus();
-        }
-      } else if (event.eventType === "up") {
-        const prevIndex = Math.max(currentFocusIndex - 1, 0);
-        setCurrentFocusIndex(prevIndex);
-      }
-    },
-    [currentFocusIndex, sections.length, deviceType]
-  );
-
-  useTVEventHandler(deviceType === "tv" ? handleTVEvent : () => { });
+  // TV端焦点导航：直接依赖系统原生 D-pad 焦点引擎，
+  // 焦点顺序 = 页面元素顺序（各设置区输入框 → 保存按钮），无需自定义拦截。
 
   // 动态样式
   const dynamicStyles = createResponsiveStyles(deviceType, spacing, insets);
@@ -334,8 +309,8 @@ const createResponsiveStyles = (deviceType: string, spacing: number, insets: any
       alignItems: isMobile ? "center" : "flex-end",
     },
     saveButton: {
-      minHeight: isMobile ? minTouchTarget : isTablet ? 50 : 50,
-      width: isMobile ? "100%" : isTablet ? 140 : 120,
+      minHeight: isMobile ? minTouchTarget : isTablet ? 50 : 56,
+      width: isMobile ? "100%" : isTablet ? 140 : 160,
       maxWidth: isMobile ? 280 : undefined,
     },
     disabledButton: {

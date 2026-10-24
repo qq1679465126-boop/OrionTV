@@ -206,7 +206,7 @@ const VideoCard = forwardRef<View, VideoCardProps>(
             )}
           </View>
           <View style={styles.infoContainer}>
-            <ThemedText numberOfLines={1} style={isFocused ? styles.titleFocused : undefined}>
+            <ThemedText numberOfLines={1} style={[styles.title, isFocused && styles.titleFocused]}>
               {title}
             </ThemedText>
             {isContinueWatching && (
@@ -227,8 +227,8 @@ VideoCard.displayName = "VideoCard";
 
 export default VideoCard;
 
-const CARD_WIDTH = 160;
-const CARD_HEIGHT = 240;
+const CARD_WIDTH = 176;
+const CARD_HEIGHT = 264;
 
 const styles = StyleSheet.create({
   wrapper: {
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     color: "#FFD700",
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "bold",
     marginLeft: 4,
   },
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: "white",
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "bold",
     textAlign: "center",
   },
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: "white",
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "bold",
   },
   progressContainer: {

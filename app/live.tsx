@@ -186,6 +186,7 @@ export default function LiveScreen() {
 const createResponsiveStyles = (deviceType: string, spacing: number) => {
   const isMobile = deviceType === 'mobile';
   const isTablet = deviceType === 'tablet';
+  const isTV = deviceType === 'tv';
   const minTouchTarget = DeviceUtils.getMinTouchTargetSize();
 
   return StyleSheet.create({
@@ -199,16 +200,16 @@ const createResponsiveStyles = (deviceType: string, spacing: number) => {
       backgroundColor: "transparent",
     },
     modalContent: {
-      width: isMobile ? '90%' : isTablet ? 400 : 450,
+      width: isMobile ? '90%' : isTablet ? 400 : 520,
       height: "100%",
       backgroundColor: "rgba(0, 0, 0, 0.85)",
-      padding: spacing,
+      padding: isTV ? 40 : spacing,
     },
     modalTitle: {
       color: "white",
       marginBottom: spacing / 2,
       textAlign: "center",
-      fontSize: isMobile ? 18 : 16,
+      fontSize: isTV ? 24 : isMobile ? 18 : 16,
       fontWeight: "bold",
     },
     listContainer: {
@@ -228,19 +229,19 @@ const createResponsiveStyles = (deviceType: string, spacing: number) => {
       paddingVertical: isMobile ? minTouchTarget / 4 : 8,
       paddingHorizontal: spacing / 2,
       marginVertical: isMobile ? 2 : 4,
-      minHeight: isMobile ? minTouchTarget * 0.7 : undefined,
+      minHeight: isMobile ? minTouchTarget * 0.7 : isTV ? 56 : undefined,
     },
     groupButtonText: {
-      fontSize: isMobile ? 14 : 13,
+      fontSize: isTV ? 17 : isMobile ? 14 : 13,
     },
     channelItem: {
       paddingVertical: isMobile ? minTouchTarget / 5 : 6,
       paddingHorizontal: spacing,
       marginVertical: isMobile ? 2 : 3,
-      minHeight: isMobile ? minTouchTarget * 0.8 : undefined,
+      minHeight: isMobile ? minTouchTarget * 0.8 : isTV ? 60 : undefined,
     },
     channelItemText: {
-      fontSize: isMobile ? 14 : 12,
+      fontSize: isTV ? 17 : isMobile ? 14 : 12,
     },
   });
 };

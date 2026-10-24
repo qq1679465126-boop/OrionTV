@@ -88,13 +88,13 @@ const createResponsiveStyles = (deviceType: string, spacing: number) => {
   return StyleSheet.create({
     container: {
       flex: 1,
-      paddingTop: isTV ? spacing * 2 : 0,
+      paddingTop: isTV ? 48 : 0,
     },
     headerContainer: {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
-      paddingHorizontal: spacing * 1.5,
+      paddingHorizontal: isTV ? spacing * 2 : spacing * 1.5,
       marginBottom: spacing / 2,
     },
     headerTitle: {

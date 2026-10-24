@@ -12,7 +12,15 @@ const CONTROLS_TIMEOUT = 5000;
  * @returns onScreenPress - 一个函数，用于处理屏幕点击事件，以显示控件并重置定时器。
  */
 export const useTVRemoteHandler = () => {
-  const { showControls, setShowControls, showEpisodeModal, togglePlayPause, seek } = usePlayerStore();
+  const {
+    showControls,
+    setShowControls,
+    showEpisodeModal,
+    showSourceModal,
+    showSpeedModal,
+    togglePlayPause,
+    seek,
+  } = usePlayerStore();
 
   const controlsTimer = useRef<NodeJS.Timeout | null>(null);
   const fastForwardIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -60,7 +68,8 @@ export const useTVRemoteHandler = () => {
   // 处理遥控器事件
   const handleTVEvent = useCallback(
     (event: HWEvent) => {
-      if (showEpisodeModal) {
+      // 任一弹窗打开时，遥控事件交给弹窗内部焦点处理，避免冲突
+      if (showEpisodeModal || showSourceModal || showSpeedModal) {
         return;
       }
 
@@ -86,8 +95,20 @@ export const useTVRemoteHandler = () => {
           togglePlayPause();
           setShowControls(true);
           break;
+        // 标准媒体键（部分遥控器的播放/暂停/快进/快退专用键）
+        case "playPause":
+        case "play":
+        case "pause":
+          togglePlayPause();
+          break;
+        case "rew":
+          seek(-SEEK_STEP);
+          break;
+        case "ff":
+          seek(SEEK_STEP);
+          break;
         case "left":
-          seek(-SEEK_STEP); // 快退15秒
+          seek(-SEEK_STEP); // 快退20秒
           break;
         case "longLeft":
           if (!fastForwardIntervalRef.current && event.eventKeyAction === 0) {
@@ -108,11 +129,12 @@ export const useTVRemoteHandler = () => {
           }
           break;
         case "down":
+        case "up":
           setShowControls(true);
           break;
       }
     },
-    [showControls, showEpisodeModal, setShowControls, resetTimer, togglePlayPause, seek]
+    [showControls, showEpisodeModal, showSourceModal, showSpeedModal, setShowControls, resetTimer, togglePlayPause, seek]
   );
 
   useTVEventHandler(handleTVEvent);

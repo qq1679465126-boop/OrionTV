@@ -57,8 +57,8 @@ const getLayoutConfig = (
     case "tv":
     default:
       columns = 5;
-      cardWidth = 160; // Fixed width for TV
-      cardHeight = 240; // Fixed height for TV
+      cardWidth = 176; // Fixed width for TV (10-foot UI)
+      cardHeight = 264; // Fixed height for TV (2:3 poster ratio)
       break;
   }
 

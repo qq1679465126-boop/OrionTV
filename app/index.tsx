@@ -207,7 +207,7 @@ export default function HomeScreen() {
           <ThemedText style={dynamicStyles.headerTitle}>首页</ThemedText>
           <Pressable android_ripple={Platform.isTV || deviceType !== 'tv'? { color: 'transparent' } : { color: Colors.dark.link }} style={{ marginLeft: 20 }} onPress={() => router.push("/live")}>
             {({ focused }) => (
-              <ThemedText style={[dynamicStyles.headerTitle, { color: focused ? "white" : "grey" }]}>直播</ThemedText>
+              <ThemedText style={[dynamicStyles.headerTitle, { color: focused ? Colors.dark.primary : "grey", fontWeight: focused ? "bold" : "normal" }]}>直播</ThemedText>
             )}
           </Pressable>
         </View>
@@ -245,7 +245,7 @@ export default function HomeScreen() {
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
-      paddingHorizontal: spacing * 1.5,
+      paddingHorizontal: deviceType === "tv" ? spacing * 2 : spacing * 1.5,
       marginBottom: spacing,
     },
     headerTitle: {
@@ -265,7 +265,7 @@ export default function HomeScreen() {
       paddingBottom: spacing / 2,
     },
     categoryListContent: {
-      paddingHorizontal: spacing,
+      paddingHorizontal: deviceType === "tv" ? spacing * 2 : spacing,
     },
     categoryButton: {
       paddingHorizontal: deviceType === "tv" ? spacing / 4 : spacing / 2,

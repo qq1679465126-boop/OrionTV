@@ -72,26 +72,27 @@ const styles = StyleSheet.create({
     width: 600,
     height: "100%",
     backgroundColor: "rgba(0, 0, 0, 0.85)",
-    padding: 20,
+    padding: 40,
   },
   modalTitle: {
     color: "white",
-    marginBottom: 12,
+    marginBottom: 16,
     textAlign: "center",
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: "bold",
   },
   sourceList: {
     justifyContent: "flex-start",
   },
   sourceItem: {
-    paddingVertical: 2,
-    margin: 4,
+    paddingVertical: 8,
+    margin: 6,
     marginLeft: 10,
     marginRight: 8,
     width: "30%",
+    minHeight: 52,
   },
   sourceItemText: {
-    fontSize: 14,
+    fontSize: 16,
   },
 });

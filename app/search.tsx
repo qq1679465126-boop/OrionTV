@@ -185,23 +185,24 @@ export default function SearchScreen() {
 
 const createResponsiveStyles = (deviceType: string, spacing: number) => {
   const isMobile = deviceType === 'mobile';
+  const isTV = deviceType === 'tv';
   const minTouchTarget = DeviceUtils.getMinTouchTargetSize();
 
   return StyleSheet.create({
     container: {
       flex: 1,
-      paddingTop: deviceType === 'tv' ? 50 : 0,
+      paddingTop: isTV ? 48 : 0,
     },
     searchContainer: {
       flexDirection: "row",
-      paddingHorizontal: spacing,
+      paddingHorizontal: isTV ? 48 : spacing,
       marginBottom: spacing,
       alignItems: "center",
       paddingTop: isMobile ? spacing / 2 : 0,
     },
     inputContainer: {
       flex: 1,
-      height: isMobile ? minTouchTarget : 50,
+      height: isTV ? 60 : isMobile ? minTouchTarget : 50,
       backgroundColor: "#2c2c2e",
       borderRadius: isMobile ? 8 : 8,
       marginRight: spacing / 2,
@@ -213,26 +214,26 @@ const createResponsiveStyles = (deviceType: string, spacing: number) => {
       flex: 1,
       paddingHorizontal: spacing,
       color: "white",
-      fontSize: isMobile ? 16 : 18,
+      fontSize: isTV ? 20 : isMobile ? 16 : 18,
     },
     searchButton: {
-      width: isMobile ? minTouchTarget : 50,
-      height: isMobile ? minTouchTarget : 50,
+      width: isTV ? 60 : isMobile ? minTouchTarget : 50,
+      height: isTV ? 60 : isMobile ? minTouchTarget : 50,
       justifyContent: "center",
       alignItems: "center",
       borderRadius: isMobile ? 8 : 8,
       marginRight: deviceType !== 'mobile' ? spacing / 2 : 0,
     },
     qrButton: {
-      width: isMobile ? minTouchTarget : 50,
-      height: isMobile ? minTouchTarget : 50,
+      width: isTV ? 60 : isMobile ? minTouchTarget : 50,
+      height: isTV ? 60 : isMobile ? minTouchTarget : 50,
       justifyContent: "center",
       alignItems: "center",
       borderRadius: isMobile ? 8 : 8,
     },
     errorText: {
       color: "red",
-      fontSize: isMobile ? 14 : 16,
+      fontSize: isTV ? 20 : isMobile ? 14 : 16,
       textAlign: "center",
     },
   });

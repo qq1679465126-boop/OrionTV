@@ -15,18 +15,21 @@ export const MediaButton = ({ timeLabel, ...props }: StyledButtonProps) => (
 
 const styles = StyleSheet.create({
   mediaControlButton: {
-    padding: 12,
-    minWidth: 80,
+    padding: 16,
+    minWidth: 96,
+    minHeight: 64,
+    justifyContent: "center",
+    alignItems: "center",
   },
   timeLabel: {
     position: "absolute",
-    top: 14,
-    right: 12,
+    top: 10,
+    right: 10,
     color: "white",
-    fontSize: 10,
+    fontSize: 13,
     fontWeight: "bold",
     backgroundColor: "rgba(0,0,0,0.6)",
-    paddingHorizontal: 4,
+    paddingHorizontal: 5,
     borderRadius: 3,
   },
 });

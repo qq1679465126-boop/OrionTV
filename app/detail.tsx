@@ -329,10 +329,13 @@ const createResponsiveStyles = (deviceType: string, spacing: number) => {
     topContainer: {
       flexDirection: "row",
       padding: spacing,
+      // TV overscan 安全区
+      paddingHorizontal: isTV ? 48 : spacing,
+      paddingTop: isTV ? 48 : spacing,
     },
     poster: {
-      width: isTV ? 200 : 160,
-      height: isTV ? 300 : 240,
+      width: isTV ? 240 : 160,
+      height: isTV ? 360 : 240,
       borderRadius: 8,
     },
     infoContainer: {
@@ -341,7 +344,7 @@ const createResponsiveStyles = (deviceType: string, spacing: number) => {
       justifyContent: "flex-start",
     },
     descriptionScrollView: {
-      height: 150,
+      height: isTV ? 200 : 150,
     },
 
     // 通用样式
@@ -352,7 +355,7 @@ const createResponsiveStyles = (deviceType: string, spacing: number) => {
     },
     title: {
       paddingTop: 16,
-      fontSize: isMobile ? 20 : isTablet ? 24 : 28,
+      fontSize: isMobile ? 20 : isTablet ? 24 : 34,
       fontWeight: "bold",
       flexShrink: 1,
       color: 'white',
@@ -369,17 +372,18 @@ const createResponsiveStyles = (deviceType: string, spacing: number) => {
     metaText: {
       color: "#aaa",
       marginRight: spacing / 2,
-      fontSize: isMobile ? 12 : 14,
+      fontSize: isTV ? 18 : isMobile ? 12 : 14,
     },
     description: {
-      fontSize: isMobile ? 13 : 14,
+      fontSize: isTV ? 18 : isMobile ? 13 : 14,
       color: "#ccc",
-      lineHeight: isMobile ? 18 : 22,
+      lineHeight: isTV ? 28 : isMobile ? 18 : 22,
     },
 
     // 播放源和剧集样式
     bottomContainer: {
-      paddingHorizontal: spacing,
+      paddingHorizontal: isTV ? 48 : spacing,
+      paddingBottom: isTV ? 48 : spacing * 2,
     },
     sourcesContainer: {
       marginTop: spacing,
@@ -390,7 +394,7 @@ const createResponsiveStyles = (deviceType: string, spacing: number) => {
       marginBottom: spacing / 2,
     },
     sourcesTitle: {
-      fontSize: isMobile ? 16 : isTablet ? 18 : 20,
+      fontSize: isMobile ? 16 : isTablet ? 18 : 26,
       fontWeight: "bold",
       color: 'white',
     },
@@ -400,11 +404,11 @@ const createResponsiveStyles = (deviceType: string, spacing: number) => {
     },
     sourceButton: {
       margin: isMobile ? 4 : 8,
-      minHeight: isMobile ? 36 : 44,
+      minHeight: isMobile ? 36 : isTV ? 56 : 44,
     },
     sourceButtonText: {
       color: "white",
-      fontSize: isMobile ? 14 : 16,
+      fontSize: isTV ? 18 : isMobile ? 14 : 16,
     },
     badge: {
       backgroundColor: "#666",
@@ -428,7 +432,7 @@ const createResponsiveStyles = (deviceType: string, spacing: number) => {
       paddingBottom: spacing * 2,
     },
     episodesTitle: {
-      fontSize: isMobile ? 16 : isTablet ? 18 : 20,
+      fontSize: isMobile ? 16 : isTablet ? 18 : 26,
       fontWeight: "bold",
       marginBottom: spacing / 2,
       color: 'white',
@@ -438,12 +442,13 @@ const createResponsiveStyles = (deviceType: string, spacing: number) => {
       flexWrap: "wrap",
     },
     episodeButton: {
-      margin: isMobile ? 3 : 5,
-      minHeight: isMobile ? 32 : 36,
+      margin: isTV ? 8 : isMobile ? 3 : 5,
+      minHeight: isMobile ? 32 : isTV ? 52 : 36,
+      minWidth: isTV ? 96 : undefined,
     },
     episodeButtonText: {
       color: "white",
-      fontSize: isMobile ? 12 : 14,
+      fontSize: isTV ? 17 : isMobile ? 12 : 14,
     },
   });
 };

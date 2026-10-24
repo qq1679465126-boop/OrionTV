@@ -68,26 +68,27 @@ const styles = StyleSheet.create({
     width: 500,
     height: "100%",
     backgroundColor: "rgba(0, 0, 0, 0.85)",
-    padding: 20,
+    padding: 40,
   },
   modalTitle: {
     color: "white",
-    marginBottom: 12,
+    marginBottom: 16,
     textAlign: "center",
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: "bold",
   },
   speedList: {
     justifyContent: "flex-start",
   },
   speedItem: {
-    paddingVertical: 10,
-    margin: 4,
+    paddingVertical: 12,
+    margin: 6,
     marginLeft: 10,
     marginRight: 8,
     width: "30%",
+    minHeight: 56,
   },
   speedItemText: {
-    fontSize: 16,
+    fontSize: 18,
   },
 });

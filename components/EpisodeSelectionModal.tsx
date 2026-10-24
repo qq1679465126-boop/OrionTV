@@ -82,37 +82,40 @@ const styles = StyleSheet.create({
     width: 600,
     height: "100%",
     backgroundColor: "rgba(0, 0, 0, 0.85)",
-    padding: 20,
+    padding: 40,
   },
   modalTitle: {
     color: "white",
-    marginBottom: 12,
+    marginBottom: 16,
     textAlign: "center",
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: "bold",
   },
   episodeList: {
     justifyContent: "flex-start",
   },
   episodeItem: {
-    paddingVertical: 2,
-    margin: 4,
+    paddingVertical: 8,
+    margin: 6,
     width: "18%",
+    minHeight: 48,
   },
   episodeItemText: {
-    fontSize: 14,
+    fontSize: 16,
   },
   episodeGroupContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
     paddingHorizontal: 10,
+    marginBottom: 10,
   },
   episodeGroupButton: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 10,
     margin: 8,
+    minHeight: 44,
   },
   episodeGroupButtonText: {
-    fontSize: 12,
+    fontSize: 14,
   },
 });
