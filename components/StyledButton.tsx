@@ -31,13 +31,15 @@ export const StyledButton = forwardRef<View, StyledButtonProps>(
           color: colors.text,
         },
         selectedButton: {
-          backgroundColor: colors.primary,
-        },
-        focusedButton: {
+          backgroundColor: "rgba(0, 187, 94, 0.25)",
           borderColor: colors.primary,
         },
+        focusedButton: {
+          backgroundColor: colors.primary,
+          borderColor: "#ffffff",
+        },
         selectedText: {
-          color: Colors.dark.text,
+          color: colors.primary,
         },
       }),
       primary: StyleSheet.create({
@@ -49,7 +51,7 @@ export const StyledButton = forwardRef<View, StyledButtonProps>(
         },
         focusedButton: {
           backgroundColor: colors.primary,
-          borderColor: colors.background,
+          borderColor: "#ffffff",
         },
         selectedButton: {
           backgroundColor: colors.primary,
@@ -65,12 +67,17 @@ export const StyledButton = forwardRef<View, StyledButtonProps>(
         text: {
           color: colors.text,
         },
-        focusedButton: {
-          backgroundColor: "rgba(119, 119, 119, 0.2)",
+        selectedButton: {
+          backgroundColor: "rgba(0, 187, 94, 0.25)",
           borderColor: colors.primary,
         },
-        selectedButton: {},
-        selectedText: {},
+        selectedText: {
+          color: colors.primary,
+        },
+        focusedButton: {
+          backgroundColor: colors.primary,
+          borderColor: "#ffffff",
+        },
       }),
     };
 
@@ -128,6 +135,7 @@ export const StyledButton = forwardRef<View, StyledButtonProps>(
                 styles.text,
                 variantStyles[variant].text,
                 isSelected && (variantStyles[variant].selectedText ?? styles.selectedText),
+                isFocused && { color: "#ffffff", fontWeight: "bold" },
                 textStyle,
               ]}
             >
