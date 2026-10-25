@@ -181,14 +181,22 @@ export default function PlayScreen() {
         setShowControls(false);
         return true;
       }
-      router.back();
+      // 显式跳回该剧详情页（而不是依赖返回栈，避免直接回到主界面）
+      if (source && id && videoTitle) {
+        router.replace({
+          pathname: "/detail",
+          params: { source, q: videoTitle, id },
+        });
+      } else {
+        router.back();
+      }
       return true;
     };
 
     const backHandler = BackHandler.addEventListener("hardwareBackPress", backAction);
 
     return () => backHandler.remove();
-  }, [showControls, setShowControls, router]);
+  }, [showControls, setShowControls, router, source, id, videoTitle]);
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout | null = null;

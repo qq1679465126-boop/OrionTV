@@ -437,21 +437,21 @@ export default function HomeScreen() {
         </View>
         <View style={dynamicStyles.rightHeaderButtons}>
           <StyledButton style={dynamicStyles.iconButton} onPress={() => router.push("/favorites")} variant="ghost">
-            <Heart color={colorScheme === "dark" ? "white" : "black"} size={24} />
+            <Heart color={colorScheme === "dark" ? "white" : "black"} size={20} />
           </StyledButton>
           <StyledButton
             style={dynamicStyles.iconButton}
             onPress={() => router.push({ pathname: "/search" })}
             variant="ghost"
           >
-            <Search color={colorScheme === "dark" ? "white" : "black"} size={24} />
+            <Search color={colorScheme === "dark" ? "white" : "black"} size={20} />
           </StyledButton>
           <StyledButton style={dynamicStyles.iconButton} onPress={() => router.push("/settings")} variant="ghost">
-            <Settings color={colorScheme === "dark" ? "white" : "black"} size={24} />
+            <Settings color={colorScheme === "dark" ? "white" : "black"} size={20} />
           </StyledButton>
           {isLoggedIn && (
             <StyledButton style={dynamicStyles.iconButton} onPress={logout} variant="ghost">
-              <LogOut color={colorScheme === "dark" ? "white" : "black"} size={24} />
+              <LogOut color={colorScheme === "dark" ? "white" : "black"} size={20} />
             </StyledButton>
           )}
         </View>
@@ -473,7 +473,7 @@ export default function HomeScreen() {
       marginBottom: spacing,
     },
     headerTitle: {
-      fontSize: deviceType === "mobile" ? 24 : deviceType === "tablet" ? 28 : 32,
+      fontSize: deviceType === "mobile" ? 24 : deviceType === "tablet" ? 28 : 24,
       fontWeight: "bold",
       paddingTop: 16,
     },
@@ -492,13 +492,13 @@ export default function HomeScreen() {
       paddingHorizontal: deviceType === "tv" ? spacing * 2 : spacing,
     },
     categoryButton: {
-      paddingHorizontal: deviceType === "tv" ? spacing * 0.75 : spacing / 2,
-      paddingVertical: deviceType === "tv" ? 12 : spacing / 2,
+      paddingHorizontal: deviceType === "tv" ? spacing * 0.6 : spacing / 2,
+      paddingVertical: deviceType === "tv" ? 8 : spacing / 2,
       borderRadius: deviceType === "mobile" ? 6 : 8,
       marginHorizontal: deviceType === "tv" ? spacing / 4 : spacing / 2, // TV端使用更小的间距
     },
     categoryText: {
-      fontSize: deviceType === "mobile" ? 14 : deviceType === "tv" ? 19 : 16,
+      fontSize: deviceType === "mobile" ? 14 : deviceType === "tv" ? 16 : 16,
       fontWeight: "500",
     },
     contentContainer: {
