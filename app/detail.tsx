@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { View, Text, StyleSheet, Image, ScrollView, ActivityIndicator } from "react-native";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { View, Text, StyleSheet, Image, ScrollView, ActivityIndicator, Modal, FlatList, ToastAndroid } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -43,9 +43,35 @@ export default function DetailScreen() {
     };
   }, [abort, init, q, source, id]);
 
-  const handlePlay = (episodeIndex: number) => {
+  const handlePlay = async (episodeIndex: number) => {
     if (!detail) return;
     abort(); // Cancel any ongoing fetches
+
+    // 播放前自动挑选最优源：并发测速全部源（速度+画质评分），3分钟内缓存结果
+    if (searchResults.length > 1) {
+      ToastAndroid.show("正在挑选最快的播放源…", ToastAndroid.SHORT);
+      try {
+        const bestSource = await pickBestSource(detail.title);
+        if (bestSource) {
+          const bestItem = searchResults.find((s) => s.source === bestSource);
+          if (bestItem) {
+            router.push({
+              pathname: "/play",
+              params: {
+                q: bestItem.title,
+                source: bestItem.source,
+                id: bestItem.id.toString(),
+                episodeIndex: episodeIndex.toString(),
+              },
+            });
+            return;
+          }
+        }
+      } catch {
+        // 测速失败则按当前源播放
+      }
+    }
+
     router.push({
       pathname: "/play",
       params: {
@@ -58,12 +84,9 @@ export default function DetailScreen() {
     });
   };
 
-  // 折叠功能：来源和剧集较多时默认只显示一部分，可展开全部
-  const [sourcesExpanded, setSourcesExpanded] = useState(false);
+  // 剧集折叠：剧集较多时默认只显示一部分，可展开全部
   const [episodesExpanded, setEpisodesExpanded] = useState(false);
-  const SOURCE_LIMIT = 6;
   const EPISODE_LIMIT = 30;
-  const displayedSources = sourcesExpanded ? searchResults : searchResults.slice(0, SOURCE_LIMIT);
   const displayedEpisodes = detail
     ? episodesExpanded
       ? detail.episodes
@@ -75,7 +98,7 @@ export default function DetailScreen() {
     source: string;
     sourceName: string;
     ms: number | null;
-    rank?: number;
+    resolution?: string | null;
   }
   const [speedTest, setSpeedTest] = useState<{
     status: "running" | "done";
@@ -83,55 +106,128 @@ export default function DetailScreen() {
     total: number;
     results: SpeedResult[];
   } | null>(null);
+  const [showSourcePicker, setShowSourcePicker] = useState(false);
+
+  // 单源测速：下载 m3u8 片段计时，并从 master 清单解析分辨率
+  const measureSource = useCallback(async (item: (typeof searchResults)[number]): Promise<SpeedResult> => {
+    const m3u8 = item.episodes?.[0];
+    if (!m3u8) return { source: item.source, sourceName: item.source_name, ms: null };
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 6000);
+    const t0 = Date.now();
+    try {
+      const resp = await fetch(m3u8, {
+        headers: { Range: "bytes=0-65535" },
+        signal: ctrl.signal,
+      });
+      const text = await resp.text();
+      const ms = Date.now() - t0;
+      let resolution: string | null = null;
+      const m = text.match(/RESOLUTION=(\d+)x(\d+)/i);
+      if (m) {
+        const h = parseInt(m[2], 10);
+        resolution = h >= 1600 ? "4K" : h >= 1000 ? "1080P" : h >= 700 ? "720P" : "480P";
+      }
+      return { source: item.source, sourceName: item.source_name, ms, resolution };
+    } catch {
+      return { source: item.source, sourceName: item.source_name, ms: null };
+    } finally {
+      clearTimeout(timer);
+    }
+  }, [searchResults]);
 
   const runSpeedTest = useCallback(async () => {
-    const targets = searchResults;
-    if (targets.length === 0) return;
-    setSpeedTest({ status: "running", progress: 0, total: targets.length, results: [] });
+    if (searchResults.length === 0) return;
+    setSpeedTest({ status: "running", progress: 0, total: searchResults.length, results: [] });
 
     let completed = 0;
     const results: SpeedResult[] = [];
 
-    const tests = targets.map(async (item) => {
-      const m3u8 = item.episodes?.[0];
-      let ms: number | null = null;
-      if (m3u8) {
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 6000);
-        const t0 = Date.now();
-        try {
-          const resp = await fetch(m3u8, {
-            headers: { Range: "bytes=0-65535" },
-            signal: ctrl.signal,
-          });
-          await resp.text();
-          ms = Date.now() - t0;
-        } catch {
-          ms = null;
-        } finally {
-          clearTimeout(timer);
-        }
-      }
-      completed += 1;
-      const result: SpeedResult = { source: item.source, sourceName: item.source_name, ms };
-      results.push(result);
-      setSpeedTest((s) =>
-        s && s.status === "running"
-          ? { ...s, progress: completed, results: [...s.results, result] }
-          : s
-      );
-    });
-
-    await Promise.all(tests);
+    await Promise.all(
+      searchResults.map(async (item) => {
+        const r = await measureSource(item);
+        completed += 1;
+        results.push(r);
+        setSpeedTest((s) =>
+          s && s.status === "running"
+            ? { ...s, progress: completed, results: [...s.results, r] }
+            : s
+        );
+      })
+    );
 
     results.sort((a, b) => (a.ms ?? 99999) - (b.ms ?? 99999));
     setSpeedTest({
       status: "done",
-      progress: targets.length,
-      total: targets.length,
-      results: results.map((r, i) => ({ ...r, rank: i + 1 })),
+      progress: results.length,
+      total: searchResults.length,
+      results,
     });
-  }, [searchResults]);
+  }, [searchResults, measureSource]);
+
+  // 播放自动选优：综合评分 = 下载耗时 + 画质加成（越高画质加成越小），同一部片3分钟内缓存
+  const bestSourceCacheRef = useRef<{ title: string; time: number; source: string | null } | null>(null);
+
+  const pickBestSource = useCallback(
+    async (title: string): Promise<string | null> => {
+      const cache = bestSourceCacheRef.current;
+      if (cache && cache.title === title && Date.now() - cache.time < 3 * 60 * 1000) {
+        return cache.source;
+      }
+      if (searchResults.length <= 1) {
+        const only = searchResults[0]?.source ?? null;
+        bestSourceCacheRef.current = { title, time: Date.now(), source: only };
+        return only;
+      }
+
+      const partial: SpeedResult[] = [];
+      const allDone = Promise.all(
+        searchResults.map(async (item) => {
+          const r = await measureSource(item);
+          partial.push(r);
+          return r;
+        })
+      );
+      // 最多等4秒：先到先用已完成的结果，不等慢源
+      const results = await Promise.race([
+        allDone.then(() => partial.slice()),
+        new Promise<SpeedResult[]>((resolve) => setTimeout(() => resolve(partial.slice()), 4000)),
+      ]);
+
+      const valid = results.filter((r) => r.ms !== null);
+      const best = valid.length
+        ? valid.sort((a, b) => scoreSource(a) - scoreSource(b))[0].source
+        : searchResults[0]?.source ?? null;
+      bestSourceCacheRef.current = { title, time: Date.now(), source: best };
+      return best;
+    },
+    [searchResults, measureSource]
+  );
+
+  const scoreSource = (r: SpeedResult): number => {
+    const resBonus =
+      r.resolution === "4K" || r.resolution === "1080P"
+        ? 0
+        : r.resolution === "720P"
+          ? 200
+          : r.resolution === "480P"
+            ? 500
+            : 350;
+    return (r.ms as number) + resBonus;
+  };
+
+  // 弹窗里的源列表：测速完成后按速度排序
+  const sortedSourceList =
+    speedTest?.status === "done"
+      ? [...searchResults].sort((a, b) => {
+          const ma = speedTest.results.find((r) => r.source === a.source)?.ms ?? 99999;
+          const mb = speedTest.results.find((r) => r.source === b.source)?.ms ?? 99999;
+          return ma - mb;
+        })
+      : searchResults;
+
+  const msOf = (s: string): number | null | undefined =>
+    speedTest?.status === "done" ? speedTest.results.find((r) => r.source === s)?.ms : undefined;
 
   const renderSpeedTest = () => (
     <View style={dynamicStyles.speedPanel}>
@@ -165,7 +261,9 @@ export default function DetailScreen() {
         <>
           {speedTest.results.map((r) => (
             <View key={r.source} style={dynamicStyles.speedRow}>
-              <ThemedText style={dynamicStyles.speedRankText}>{r.rank}</ThemedText>
+              <ThemedText style={dynamicStyles.speedRankText}>
+                {speedTest.results.indexOf(r) + 1}
+              </ThemedText>
               <ThemedText numberOfLines={1} style={dynamicStyles.speedNameText}>
                 {r.sourceName}
                 {detail?.source === r.source ? "（使用中）" : ""}
@@ -174,12 +272,14 @@ export default function DetailScreen() {
                 style={
                   r.ms === null
                     ? dynamicStyles.speedMsTimeout
-                    : r.rank === 1
+                    : speedTest.results[0]?.source === r.source
                       ? dynamicStyles.speedMsFast
                       : dynamicStyles.speedMsText
                 }
               >
-                {r.ms === null ? "超时" : `${r.ms}ms${r.rank === 1 ? " ⚡最快" : ""}`}
+                {r.ms === null
+                  ? "超时"
+                  : `${r.ms}ms${speedTest.results[0]?.source === r.source ? " ⚡最快" : ""}`}
               </ThemedText>
             </View>
           ))}
@@ -202,6 +302,56 @@ export default function DetailScreen() {
         </>
       )}
     </View>
+  );
+
+  // 切换源弹窗：顶部测速面板，下方全部源列表（测速后按速度排序）
+  const renderSourcePicker = () => (
+    <Modal
+      visible={showSourcePicker}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setShowSourcePicker(false)}
+    >
+      <View style={pickerStyles.overlay}>
+        <View style={[pickerStyles.content, deviceType === "tv" && pickerStyles.contentTV]}>
+          <View style={pickerStyles.headerRow}>
+            <Text style={pickerStyles.title}>切换播放源</Text>
+            <StyledButton
+              text="关闭"
+              variant="ghost"
+              onPress={() => setShowSourcePicker(false)}
+              style={pickerStyles.closeButton}
+              textStyle={pickerStyles.pickerButtonText}
+            />
+          </View>
+          {renderSpeedTest()}
+          <FlatList
+            data={sortedSourceList}
+            keyExtractor={(item, index) => `pick-${item.source}-${index}`}
+            contentContainerStyle={pickerStyles.listContent}
+            renderItem={({ item, index }) => {
+              const ms = msOf(item.source);
+              return (
+                <StyledButton
+                  text={
+                    ms === undefined
+                      ? item.source_name
+                      : `${index + 1}. ${item.source_name}（${ms === null ? "超时" : `${ms}ms`}）`
+                  }
+                  onPress={() => {
+                    setDetail(item);
+                    setShowSourcePicker(false);
+                  }}
+                  isSelected={detail?.source === item.source}
+                  style={pickerStyles.sourceItem}
+                  textStyle={pickerStyles.sourceItemText}
+                />
+              );
+            }}
+          />
+        </View>
+      </View>
+    </Modal>
   );
 
   if (loading) {
@@ -284,49 +434,25 @@ export default function DetailScreen() {
             <ThemedText style={dynamicStyles.description}>{detail.desc}</ThemedText>
           </View>
 
-          {/* 播放源 */}
+          {/* 播放源：只显示当前源，其余收进「切换源」弹窗 */}
           <View style={dynamicStyles.sourcesContainer}>
             <View style={dynamicStyles.sourcesTitleContainer}>
               <ThemedText style={dynamicStyles.sourcesTitle}>播放源 ({searchResults.length})</ThemedText>
               {!allSourcesLoaded && <ActivityIndicator style={{ marginLeft: 10 }} />}
             </View>
-            <View style={dynamicStyles.sourceList}>
-              {displayedSources.map((item, index) => {
-                const isSelected = detail?.source === item.source;
-                return (
-                  <StyledButton
-                    key={index}
-                    onPress={() => setDetail(item)}
-                    isSelected={isSelected}
-                    style={dynamicStyles.sourceButton}
-                  >
-                    <ThemedText style={dynamicStyles.sourceButtonText}>{item.source_name}</ThemedText>
-                    {item.episodes.length > 1 && (
-                      <View style={[dynamicStyles.badge, isSelected && dynamicStyles.selectedBadge]}>
-                        <Text style={dynamicStyles.badgeText}>
-                          {item.episodes.length > 99 ? "99+" : `${item.episodes.length}`} 集
-                        </Text>
-                      </View>
-                    )}
-                    {item.resolution && (
-                      <View style={[dynamicStyles.badge, { backgroundColor: "#666" }, isSelected && dynamicStyles.selectedBadge]}>
-                        <Text style={dynamicStyles.badgeText}>{item.resolution}</Text>
-                      </View>
-                    )}
-                  </StyledButton>
-                );
-              })}
-            </View>
-            {searchResults.length > SOURCE_LIMIT && (
+            <View style={dynamicStyles.currentSourceRow}>
+              <ThemedText numberOfLines={1} style={dynamicStyles.currentSourceName}>
+                {detail?.source_name || "加载中"}
+                {detail?.resolution ? ` · ${detail.resolution}` : ""}
+              </ThemedText>
               <StyledButton
-                text={sourcesExpanded ? "收起来源" : `展开全部 ${searchResults.length} 个来源`}
-                variant="ghost"
-                onPress={() => setSourcesExpanded(!sourcesExpanded)}
-                style={dynamicStyles.expandButton}
-                textStyle={dynamicStyles.expandButtonText}
+                text="切换源"
+                variant="primary"
+                onPress={() => setShowSourcePicker(true)}
+                style={dynamicStyles.switchSourceButton}
+                textStyle={dynamicStyles.switchSourceButtonText}
               />
-            )}
-            {renderSpeedTest()}
+            </View>
           </View>
 
           {/* 剧集列表 */}
@@ -399,43 +525,19 @@ export default function DetailScreen() {
                 <ThemedText style={dynamicStyles.sourcesTitle}>选择播放源 共 {searchResults.length} 个</ThemedText>
                 {!allSourcesLoaded && <ActivityIndicator style={{ marginLeft: 10 }} />}
               </View>
-              <View style={dynamicStyles.sourceList}>
-                {displayedSources.map((item, index) => {
-                  const isSelected = detail?.source === item.source;
-                  return (
-                    <StyledButton
-                      key={index}
-                      onPress={() => setDetail(item)}
-                      isSelected={isSelected}
-                      style={dynamicStyles.sourceButton}
-                    >
-                      <ThemedText style={dynamicStyles.sourceButtonText}>{item.source_name}</ThemedText>
-                      {item.episodes.length > 1 && (
-                        <View style={[dynamicStyles.badge, isSelected && dynamicStyles.selectedBadge]}>
-                          <Text style={dynamicStyles.badgeText}>
-                            {item.episodes.length > 99 ? "99+" : `${item.episodes.length}`} 集
-                          </Text>
-                        </View>
-                      )}
-                      {item.resolution && (
-                        <View style={[dynamicStyles.badge, { backgroundColor: "#666" }, isSelected && dynamicStyles.selectedBadge]}>
-                          <Text style={dynamicStyles.badgeText}>{item.resolution}</Text>
-                        </View>
-                      )}
-                    </StyledButton>
-                  );
-                })}
-              </View>
-              {searchResults.length > SOURCE_LIMIT && (
+              <View style={dynamicStyles.currentSourceRow}>
+                <ThemedText numberOfLines={1} style={dynamicStyles.currentSourceName}>
+                  {detail?.source_name || "加载中"}
+                  {detail?.resolution ? ` · ${detail.resolution}` : ""}
+                </ThemedText>
                 <StyledButton
-                  text={sourcesExpanded ? "收起来源" : `展开全部 ${searchResults.length} 个来源`}
-                  variant="ghost"
-                  onPress={() => setSourcesExpanded(!sourcesExpanded)}
-                  style={dynamicStyles.expandButton}
-                  textStyle={dynamicStyles.expandButtonText}
+                  text="切换源"
+                  variant="primary"
+                  onPress={() => setShowSourcePicker(true)}
+                  style={dynamicStyles.switchSourceButton}
+                  textStyle={dynamicStyles.switchSourceButtonText}
                 />
-              )}
-              {renderSpeedTest()}
+              </View>
             </View>
             <View style={dynamicStyles.episodesContainer}>
               <ThemedText style={dynamicStyles.episodesTitle}>播放列表</ThemedText>
@@ -469,6 +571,7 @@ export default function DetailScreen() {
   const content = (
     <ThemedView style={[commonStyles.container, { paddingTop: deviceType === 'tv' ? 40 : 0 }]}>
       {renderDetailContent()}
+      {renderSourcePicker()}
     </ThemedView>
   );
 
@@ -484,6 +587,64 @@ export default function DetailScreen() {
     </ResponsiveNavigation>
   );
 }
+
+const pickerStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.65)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  content: {
+    width: "86%",
+    maxHeight: "78%",
+    backgroundColor: "#1a1d24",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    padding: 20,
+  },
+  contentTV: {
+    width: 760,
+    padding: 32,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  title: {
+    color: "white",
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  closeButton: {
+    minHeight: 44,
+  },
+  speedButton: {
+    minHeight: 48,
+    marginBottom: 10,
+  },
+  pickerButtonText: {
+    fontSize: 15,
+  },
+  hintText: {
+    color: "#aaaaaa",
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  listContent: {
+    paddingBottom: 12,
+  },
+  sourceItem: {
+    minHeight: 52,
+    marginBottom: 8,
+  },
+  sourceItemText: {
+    fontSize: 15,
+  },
+});
 
 const createResponsiveStyles = (deviceType: string, spacing: number) => {
   const isTV = deviceType === 'tv';
@@ -649,6 +810,25 @@ const createResponsiveStyles = (deviceType: string, spacing: number) => {
     speedSwitchButton: {
       marginTop: 12,
       minHeight: isTV ? 56 : 44,
+    },
+    currentSourceRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: 4,
+    },
+    currentSourceName: {
+      flex: 1,
+      fontSize: isTV ? 22 : 17,
+      fontWeight: "bold",
+      color: "white",
+      marginRight: 12,
+    },
+    switchSourceButton: {
+      minHeight: isTV ? 56 : 44,
+    },
+    switchSourceButtonText: {
+      fontSize: isTV ? 16 : 14,
+      fontWeight: "bold",
     },
     description: {
       fontSize: isTV ? 18 : isMobile ? 13 : 14,

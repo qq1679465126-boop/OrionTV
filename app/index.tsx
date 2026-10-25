@@ -238,7 +238,8 @@ export default function HomeScreen() {
     (rowIndex: number) => {
       const layout = rowLayoutsRef.current[rowIndex];
       if (!layout || rowsViewportH <= 0) return;
-      const targetY = Math.max(0, layout.y + layout.h / 2 - rowsViewportH / 2);
+      // 焦点行滚到视口顶部（留 16px 余量）：每次上下切换滚动一整行，反馈明显
+      const targetY = Math.max(0, layout.y - 16);
       rowsScrollRef.current?.scrollTo({ y: targetY, animated: true });
     },
     [rowsViewportH]
