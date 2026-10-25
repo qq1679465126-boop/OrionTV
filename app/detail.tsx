@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { View, Text, StyleSheet, Image, ScrollView, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ThemedView } from "@/components/ThemedView";
@@ -69,6 +69,140 @@ export default function DetailScreen() {
       ? detail.episodes
       : detail.episodes.slice(0, EPISODE_LIMIT)
     : [];
+
+  // 播放源测速：并发请求每个源第一集的 m3u8 片段（64KB），按真实下载耗时排序
+  interface SpeedResult {
+    source: string;
+    sourceName: string;
+    ms: number | null;
+    rank?: number;
+  }
+  const [speedTest, setSpeedTest] = useState<{
+    status: "running" | "done";
+    progress: number;
+    total: number;
+    results: SpeedResult[];
+  } | null>(null);
+
+  const runSpeedTest = useCallback(async () => {
+    const targets = searchResults;
+    if (targets.length === 0) return;
+    setSpeedTest({ status: "running", progress: 0, total: targets.length, results: [] });
+
+    let completed = 0;
+    const results: SpeedResult[] = [];
+
+    const tests = targets.map(async (item) => {
+      const m3u8 = item.episodes?.[0];
+      let ms: number | null = null;
+      if (m3u8) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 6000);
+        const t0 = Date.now();
+        try {
+          const resp = await fetch(m3u8, {
+            headers: { Range: "bytes=0-65535" },
+            signal: ctrl.signal,
+          });
+          await resp.text();
+          ms = Date.now() - t0;
+        } catch {
+          ms = null;
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+      completed += 1;
+      const result: SpeedResult = { source: item.source, sourceName: item.source_name, ms };
+      results.push(result);
+      setSpeedTest((s) =>
+        s && s.status === "running"
+          ? { ...s, progress: completed, results: [...s.results, result] }
+          : s
+      );
+    });
+
+    await Promise.all(tests);
+
+    results.sort((a, b) => (a.ms ?? 99999) - (b.ms ?? 99999));
+    setSpeedTest({
+      status: "done",
+      progress: targets.length,
+      total: targets.length,
+      results: results.map((r, i) => ({ ...r, rank: i + 1 })),
+    });
+  }, [searchResults]);
+
+  const renderSpeedTest = () => (
+    <View style={dynamicStyles.speedPanel}>
+      <View style={dynamicStyles.speedHeaderRow}>
+        <ThemedText style={dynamicStyles.speedTitle}>播放源测速</ThemedText>
+        {speedTest?.status === "done" && (
+          <StyledButton
+            text="重新测速"
+            variant="ghost"
+            onPress={runSpeedTest}
+            style={dynamicStyles.speedButton}
+            textStyle={dynamicStyles.speedButtonText}
+          />
+        )}
+      </View>
+      {!speedTest && (
+        <StyledButton
+          text="开始测速，找出最快的源"
+          variant="ghost"
+          onPress={runSpeedTest}
+          style={dynamicStyles.speedButton}
+          textStyle={dynamicStyles.speedButtonText}
+        />
+      )}
+      {speedTest?.status === "running" && (
+        <ThemedText style={dynamicStyles.speedRunningText}>
+          测速中 {speedTest.progress}/{speedTest.total}，请稍候…
+        </ThemedText>
+      )}
+      {speedTest?.status === "done" && (
+        <>
+          {speedTest.results.map((r) => (
+            <View key={r.source} style={dynamicStyles.speedRow}>
+              <ThemedText style={dynamicStyles.speedRankText}>{r.rank}</ThemedText>
+              <ThemedText numberOfLines={1} style={dynamicStyles.speedNameText}>
+                {r.sourceName}
+                {detail?.source === r.source ? "（使用中）" : ""}
+              </ThemedText>
+              <ThemedText
+                style={
+                  r.ms === null
+                    ? dynamicStyles.speedMsTimeout
+                    : r.rank === 1
+                      ? dynamicStyles.speedMsFast
+                      : dynamicStyles.speedMsText
+                }
+              >
+                {r.ms === null ? "超时" : `${r.ms}ms${r.rank === 1 ? " ⚡最快" : ""}`}
+              </ThemedText>
+            </View>
+          ))}
+          {speedTest.results[0] &&
+            speedTest.results[0].ms !== null &&
+            detail?.source !== speedTest.results[0].source && (
+              <StyledButton
+                text="切换到最快的源"
+                variant="primary"
+                onPress={() => {
+                  const fastest = searchResults.find(
+                    (s) => s.source === speedTest.results[0].source
+                  );
+                  if (fastest) setDetail(fastest);
+                }}
+                style={dynamicStyles.speedSwitchButton}
+                textStyle={dynamicStyles.speedButtonText}
+              />
+            )}
+        </>
+      )}
+    </View>
+  );
 
   if (loading) {
     return <VideoLoadingAnimation showProgressBar={false} />;
@@ -192,6 +326,7 @@ export default function DetailScreen() {
                 textStyle={dynamicStyles.expandButtonText}
               />
             )}
+            {renderSpeedTest()}
           </View>
 
           {/* 剧集列表 */}
@@ -300,6 +435,7 @@ export default function DetailScreen() {
                   textStyle={dynamicStyles.expandButtonText}
                 />
               )}
+              {renderSpeedTest()}
             </View>
             <View style={dynamicStyles.episodesContainer}>
               <ThemedText style={dynamicStyles.episodesTitle}>播放列表</ThemedText>
@@ -448,6 +584,71 @@ const createResponsiveStyles = (deviceType: string, spacing: number) => {
     expandButtonText: {
       fontSize: isTV ? 16 : 14,
       color: "#aaaaaa",
+    },
+    speedPanel: {
+      marginTop: 10,
+      backgroundColor: "rgba(255, 255, 255, 0.05)",
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: "rgba(255, 255, 255, 0.1)",
+      padding: isTV ? 18 : 12,
+    },
+    speedHeaderRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 6,
+    },
+    speedTitle: {
+      fontSize: isTV ? 19 : 16,
+      fontWeight: "bold",
+      color: "white",
+    },
+    speedButton: {
+      minHeight: isTV ? 52 : 38,
+    },
+    speedButtonText: {
+      fontSize: isTV ? 15 : 13,
+    },
+    speedRunningText: {
+      color: "#aaaaaa",
+      fontSize: isTV ? 15 : 13,
+      marginTop: 6,
+    },
+    speedRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginTop: 6,
+    },
+    speedRankText: {
+      color: "#888888",
+      fontSize: isTV ? 15 : 13,
+      width: isTV ? 28 : 22,
+    },
+    speedNameText: {
+      flex: 1,
+      color: "white",
+      fontSize: isTV ? 16 : 14,
+    },
+    speedMsText: {
+      color: "#cccccc",
+      fontSize: isTV ? 15 : 13,
+      marginLeft: 8,
+    },
+    speedMsFast: {
+      color: "#00bb5e",
+      fontSize: isTV ? 15 : 13,
+      fontWeight: "bold",
+      marginLeft: 8,
+    },
+    speedMsTimeout: {
+      color: "#ff6b6b",
+      fontSize: isTV ? 15 : 13,
+      marginLeft: 8,
+    },
+    speedSwitchButton: {
+      marginTop: 12,
+      minHeight: isTV ? 56 : 44,
     },
     description: {
       fontSize: isTV ? 18 : isMobile ? 13 : 14,
