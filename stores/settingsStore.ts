@@ -23,6 +23,8 @@ interface SettingsState {
   apiBaseUrl: string;
   m3uUrl: string;
   remoteInputEnabled: boolean;
+  // 投屏模式：强制使用电视版界面（手机/平板投屏到电视时开启）
+  forcedTVMode: boolean;
   videoSource: {
     enabledAll: boolean;
     sources: {
@@ -37,6 +39,7 @@ interface SettingsState {
   setApiBaseUrl: (url: string) => void;
   setM3uUrl: (url: string) => void;
   setRemoteInputEnabled: (enabled: boolean) => void;
+  setForcedTVMode: (enabled: boolean) => void;
   saveSettings: () => Promise<void>;
   setVideoSource: (config: { enabledAll: boolean; sources: { [key: string]: boolean } }) => void;
   showModal: () => void;
@@ -48,6 +51,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   m3uUrl: "",
   liveStreamSources: [],
   remoteInputEnabled: false,
+  forcedTVMode: false,
   isModalVisible: false,
   serverConfig: null,
   isLoadingServerConfig: false,
@@ -61,6 +65,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       apiBaseUrl: settings.apiBaseUrl,
       m3uUrl: settings.m3uUrl,
       remoteInputEnabled: settings.remoteInputEnabled || false,
+      forcedTVMode: settings.forcedTVMode || false,
       videoSource: settings.videoSource || {
         enabledAll: true,
         sources: {},
@@ -93,6 +98,13 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setApiBaseUrl: (url) => set({ apiBaseUrl: url }),
   setM3uUrl: (url) => set({ m3uUrl: url }),
   setRemoteInputEnabled: (enabled) => set({ remoteInputEnabled: enabled }),
+  // 切换后立即生效，并异步持久化（无需按保存按钮）
+  setForcedTVMode: (enabled) => {
+    set({ forcedTVMode: enabled });
+    SettingsManager.save({ forcedTVMode: enabled }).catch((e) =>
+      logger.error("Failed to persist forcedTVMode:", e)
+    );
+  },
   setVideoSource: (config) => set({ videoSource: config }),
   saveSettings: async () => {
     const { apiBaseUrl, m3uUrl, remoteInputEnabled, videoSource } = get();

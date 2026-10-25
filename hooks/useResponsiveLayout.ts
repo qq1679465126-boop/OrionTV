@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Dimensions, Platform } from "react-native";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 export type DeviceType = "mobile" | "tablet" | "tv";
 
@@ -80,6 +81,9 @@ export const useResponsiveLayout = (): ResponsiveConfig => {
     return { width, height };
   });
 
+  // 投屏模式：手机/平板投屏到电视时强制使用电视版界面
+  const forcedTVMode = useSettingsStore((s) => s.forcedTVMode);
+
   useEffect(() => {
     const subscription = Dimensions.addEventListener("change", ({ window }) => {
       setDimensions({ width: window.width, height: window.height });
@@ -90,7 +94,8 @@ export const useResponsiveLayout = (): ResponsiveConfig => {
 
   const { width, height } = dimensions;
   const isPortrait = height > width;
-  const deviceType = getDeviceType(width);
+  let deviceType = getDeviceType(width);
+  if (forcedTVMode) deviceType = "tv";
 
   return getLayoutConfig(deviceType, width, height, isPortrait);
 };

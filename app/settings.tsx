@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, StyleSheet, Alert, Platform } from "react-native";
+import { View, StyleSheet, Alert, Platform, Switch } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -156,6 +156,10 @@ export default function SettingsScreen() {
   //   },
   // ].filter(Boolean);
   const rawSections = [
+    {
+      component: <TVModeSection />,
+      key: "tvui",
+    },
     deviceType !== "mobile" && {
       component: (
         <RemoteInputSection
@@ -273,6 +277,58 @@ export default function SettingsScreen() {
     </ResponsiveNavigation>
   );
 }
+
+// 投屏模式开关：手机/平板投屏到电视时，强制使用电视版大字界面。
+// 切换后立即生效并自动保存，无需按"保存设置"。
+function TVModeSection() {
+  const forcedTVMode = useSettingsStore((s) => s.forcedTVMode);
+  const setForcedTVMode = useSettingsStore((s) => s.setForcedTVMode);
+
+  return (
+    <View style={tvModeStyles.card}>
+      <View style={tvModeStyles.textContent}>
+        <ThemedText style={tvModeStyles.title}>电视版界面（投屏模式）</ThemedText>
+        <ThemedText style={tvModeStyles.description}>
+          用手机/平板投屏到电视时开启，界面立即变成电视版大字布局（多行栏目、大卡片、大按钮）。
+          建议手机横屏后投屏。再次关闭可恢复手机版界面。
+        </ThemedText>
+      </View>
+      <Switch
+        value={forcedTVMode}
+        onValueChange={setForcedTVMode}
+        trackColor={{ false: "#444444", true: "#00bb5e" }}
+        thumbColor="#ffffff"
+      />
+    </View>
+  );
+}
+
+const tvModeStyles = StyleSheet.create({
+  card: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    padding: 16,
+  },
+  textContent: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  title: {
+    color: "white",
+    fontSize: 17,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  description: {
+    color: "#aaaaaa",
+    fontSize: 13,
+    lineHeight: 19,
+  },
+});
 
 const createResponsiveStyles = (deviceType: string, spacing: number, insets: any) => {
   const isMobile = deviceType === "mobile";
