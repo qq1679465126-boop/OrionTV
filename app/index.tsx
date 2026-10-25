@@ -54,6 +54,7 @@ function ContentRow({
         renderItem={({ item, index }) => (
           <View style={{ width: cardWidth, marginRight: 16 }}>
             <VideoCard
+              cardWidth={cardWidth}
               id={item.id}
               source={item.source}
               title={item.title}
@@ -234,6 +235,13 @@ export default function HomeScreen() {
   const [rowsViewportH, setRowsViewportH] = useState(0);
   const rowLayoutsRef = useRef<Record<number, { y: number; h: number }>>({});
 
+  // TV 卡片宽度自适应：海报行不超过视口高度的 72%，保证一行（含标题）完整显示
+  // 大屏电视仍保持 176；投屏小屏（如手机横屏约 400dp 高）自动缩到 96-135
+  const tvCardWidth =
+    rowsViewportH > 0
+      ? Math.max(96, Math.min(176, Math.floor((rowsViewportH * 0.72 - 110) / 1.5)))
+      : 176;
+
   const scrollRowToCenter = useCallback(
     (rowIndex: number) => {
       const layout = rowLayoutsRef.current[rowIndex];
@@ -401,7 +409,7 @@ export default function HomeScreen() {
             rowIndex={i}
             onRowLayout={handleRowLayout}
             onRowFocus={scrollRowToCenter}
-            cardWidth={responsiveConfig.cardWidth}
+            cardWidth={tvCardWidth}
             onRecordDeleted={fetchInitialData}
           />
         ))}

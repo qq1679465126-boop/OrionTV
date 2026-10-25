@@ -26,6 +26,7 @@ interface VideoCardProps extends React.ComponentProps<typeof TouchableOpacity> {
   onFocus?: () => void;
   onRecordDeleted?: () => void; // 添加回调属性
   api: API;
+  cardWidth?: number; // 海报宽度（可选，默认176，按屏幕高度自适应时传入）
 }
 
 const VideoCard = forwardRef<View, VideoCardProps>(
@@ -44,12 +45,18 @@ const VideoCard = forwardRef<View, VideoCardProps>(
       onRecordDeleted,
       api,
       playTime = 0,
+      cardWidth: cardWidthProp,
     }: VideoCardProps,
     ref
   ) => {
     const router = useRouter();
     const [isFocused, setIsFocused] = useState(false);
     const [fadeAnim] = useState(new Animated.Value(0));
+
+    // 海报宽度：默认 176，高度按 2:3 比例，小屏（投屏模式）自动缩小
+    const cardW = Math.round(cardWidthProp ?? CARD_WIDTH);
+    const cardH = Math.round(cardW * 1.5);
+    const s = React.useMemo(() => createStyles(cardW, cardH), [cardW, cardH]);
 
     const longPressTriggered = useRef(false);
 
@@ -83,7 +90,7 @@ const VideoCard = forwardRef<View, VideoCardProps>(
     const handleFocus = useCallback(() => {
       setIsFocused(true);
       Animated.spring(scale, {
-        toValue: 1.12,
+        toValue: 1.08,
         damping: 15,
         stiffness: 200,
         useNativeDriver: true,
@@ -149,7 +156,7 @@ const VideoCard = forwardRef<View, VideoCardProps>(
     const isContinueWatching = progress !== undefined && progress > 0 && progress < 1;
 
     return (
-      <Animated.View style={[styles.wrapper, animatedStyle, { opacity: fadeAnim }]}>
+      <Animated.View style={[s.wrapper, animatedStyle, { opacity: fadeAnim }]}>
         <Pressable
           android_ripple={Platform.isTV || deviceType !== 'tv' ? { color: 'transparent' } : { color: Colors.dark.link }}
           onPress={handlePress}
@@ -157,7 +164,7 @@ const VideoCard = forwardRef<View, VideoCardProps>(
           onFocus={handleFocus}
           onBlur={handleBlur}
           style={({ pressed }) => [
-            styles.pressable,
+            s.pressable,
             {
               zIndex: pressed ? 999 : 1, // 确保按下时有最高优先级
             },
@@ -165,17 +172,17 @@ const VideoCard = forwardRef<View, VideoCardProps>(
           // activeOpacity={1}
           delayLongPress={1000}
         >
-          <View style={styles.card}>
-            <Image source={{ uri: api.getImageProxyUrl(poster) }} style={styles.poster} />
+          <View style={s.card}>
+            <Image source={{ uri: api.getImageProxyUrl(poster) }} style={s.poster} />
             {isFocused && (
-              <View style={styles.focusBorder} />
+              <View style={s.focusBorder} />
             )}
             {isFocused && (
-              <View style={styles.overlay}>
+              <View style={s.overlay}>
                 {isContinueWatching && (
-                  <View style={styles.continueWatchingBadge}>
+                  <View style={s.continueWatchingBadge}>
                     <Play size={16} color="#ffffff" fill="#ffffff" />
-                    <ThemedText style={styles.continueWatchingText}>继续观看</ThemedText>
+                    <ThemedText style={s.continueWatchingText}>继续观看</ThemedText>
                   </View>
                 )}
               </View>
@@ -183,35 +190,35 @@ const VideoCard = forwardRef<View, VideoCardProps>(
 
             {/* 进度条 */}
             {isContinueWatching && (
-              <View style={styles.progressContainer}>
-                <View style={[styles.progressBar, { width: `${(progress || 0) * 100}%` }]} />
+              <View style={s.progressContainer}>
+                <View style={[s.progressBar, { width: `${(progress || 0) * 100}%` }]} />
               </View>
             )}
 
             {rate && (
-              <View style={styles.ratingContainer}>
+              <View style={s.ratingContainer}>
                 <Star size={12} color="#FFD700" fill="#FFD700" />
-                <ThemedText style={styles.ratingText}>{rate}</ThemedText>
+                <ThemedText style={s.ratingText}>{rate}</ThemedText>
               </View>
             )}
             {year && (
-              <View style={styles.yearBadge}>
-                <Text style={styles.badgeText}>{year}</Text>
+              <View style={s.yearBadge}>
+                <Text style={s.badgeText}>{year}</Text>
               </View>
             )}
             {sourceName && (
-              <View style={styles.sourceNameBadge}>
-                <Text style={styles.badgeText}>{sourceName}</Text>
+              <View style={s.sourceNameBadge}>
+                <Text style={s.badgeText}>{sourceName}</Text>
               </View>
             )}
           </View>
-          <View style={styles.infoContainer}>
-            <ThemedText numberOfLines={1} style={[styles.title, isFocused && styles.titleFocused]}>
+          <View style={s.infoContainer}>
+            <ThemedText numberOfLines={1} style={[s.title, isFocused && s.titleFocused]}>
               {title}
             </ThemedText>
             {isContinueWatching && (
-              <View style={styles.infoRow}>
-                <ThemedText style={styles.continueLabel}>
+              <View style={s.infoRow}>
+                <ThemedText style={s.continueLabel}>
                   第{episodeIndex}集 已观看 {Math.round((progress || 0) * 100)}%
                 </ThemedText>
               </View>
@@ -228,150 +235,151 @@ VideoCard.displayName = "VideoCard";
 export default VideoCard;
 
 const CARD_WIDTH = 176;
-const CARD_HEIGHT = 264;
 
-const styles = StyleSheet.create({
-  wrapper: {
-    marginHorizontal: 8,
-  },
-  pressable: {
-    width: CARD_WIDTH + 20,
-    height: CARD_HEIGHT + 60,
-    justifyContent: 'center',
-    alignItems: "center",
-    overflow: "visible",
-  },
-  card: {
-    marginTop: 10,
-    width: CARD_WIDTH,
-    height: CARD_HEIGHT,
-    borderRadius: 8,
-    backgroundColor: "#222",
-    overflow: "hidden",
-  },
-  poster: {
-    width: "100%",
-    height: "100%",
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.15)",
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  focusBorder: {
-    ...StyleSheet.absoluteFillObject,
-    borderWidth: 4,
-    borderColor: "#ffffff",
-    borderRadius: 8,
-    zIndex: 10,
-  },
-  buttonRow: {
-    position: "absolute",
-    top: 8,
-    left: 8,
-    flexDirection: "row",
-    gap: 8,
-  },
-  iconButton: {
-    padding: 4,
-  },
-  favButton: {
-    position: "absolute",
-    top: 8,
-    left: 8,
-  },
-  ratingContainer: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-  },
-  ratingText: {
-    color: "#FFD700",
-    fontSize: 14,
-    fontWeight: "bold",
-    marginLeft: 4,
-  },
-  infoContainer: {
-    width: CARD_WIDTH,
-    marginTop: 8,
-    alignItems: "flex-start",
-    marginBottom: 16,
-    paddingHorizontal: 4,
-  },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
-  },
-  title: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "bold",
-    textAlign: "center",
-  },
-  titleFocused: {
-    color: Colors.dark.primary,
-    fontWeight: "bold",
-  },
-  yearBadge: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-  },
-  sourceNameBadge: {
-    position: "absolute",
-    top: 8,
-    left: 8,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-  },
-  badgeText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-  progressContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 4,
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: Colors.dark.primary,
-  },
-  continueWatchingBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: Colors.dark.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 5,
-  },
-  continueWatchingText: {
-    color: "white",
-    marginLeft: 5,
-    fontSize: 12,
-    fontWeight: "bold",
-  },
-  continueLabel: {
-    color: Colors.dark.primary,
-    fontSize: 12,
-  },
-});
+// 海报尺寸动态化：宽度可传入（投屏小屏自动缩小），高度固定 2:3
+const createStyles = (w: number, h: number) =>
+  StyleSheet.create({
+    wrapper: {
+      marginHorizontal: 8,
+    },
+    pressable: {
+      width: w + 20,
+      height: h + 60,
+      justifyContent: "center",
+      alignItems: "center",
+      overflow: "visible",
+    },
+    card: {
+      marginTop: 10,
+      width: w,
+      height: h,
+      borderRadius: 8,
+      backgroundColor: "#222",
+      overflow: "hidden",
+    },
+    poster: {
+      width: "100%",
+      height: "100%",
+    },
+    overlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(0,0,0,0.15)",
+      borderRadius: 8,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    focusBorder: {
+      ...StyleSheet.absoluteFillObject,
+      borderWidth: 4,
+      borderColor: "#ffffff",
+      borderRadius: 8,
+      zIndex: 10,
+    },
+    buttonRow: {
+      position: "absolute",
+      top: 8,
+      left: 8,
+      flexDirection: "row",
+      gap: 8,
+    },
+    iconButton: {
+      padding: 4,
+    },
+    favButton: {
+      position: "absolute",
+      top: 8,
+      left: 8,
+    },
+    ratingContainer: {
+      position: "absolute",
+      top: 8,
+      right: 8,
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: "rgba(0, 0, 0, 0.7)",
+      borderRadius: 6,
+      paddingHorizontal: 6,
+      paddingVertical: 3,
+    },
+    ratingText: {
+      color: "#FFD700",
+      fontSize: w < 150 ? 11 : 14,
+      fontWeight: "bold",
+      marginLeft: 4,
+    },
+    infoContainer: {
+      width: w,
+      marginTop: 8,
+      alignItems: "flex-start",
+      marginBottom: 16,
+      paddingHorizontal: 4,
+    },
+    infoRow: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      width: "100%",
+    },
+    title: {
+      color: "white",
+      fontSize: w < 150 ? 14 : 18,
+      fontWeight: "bold",
+      textAlign: "center",
+    },
+    titleFocused: {
+      color: Colors.dark.primary,
+      fontWeight: "bold",
+    },
+    yearBadge: {
+      position: "absolute",
+      top: 8,
+      right: 8,
+      backgroundColor: "rgba(0, 0, 0, 0.7)",
+      borderRadius: 6,
+      paddingHorizontal: 6,
+      paddingVertical: 3,
+    },
+    sourceNameBadge: {
+      position: "absolute",
+      top: 8,
+      left: 8,
+      backgroundColor: "rgba(0, 0, 0, 0.7)",
+      borderRadius: 6,
+      paddingHorizontal: 6,
+      paddingVertical: 3,
+    },
+    badgeText: {
+      color: "white",
+      fontSize: w < 150 ? 11 : 14,
+      fontWeight: "bold",
+    },
+    progressContainer: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: 4,
+      backgroundColor: "rgba(0, 0, 0, 0.8)",
+    },
+    progressBar: {
+      height: 4,
+      backgroundColor: Colors.dark.primary,
+    },
+    continueWatchingBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: Colors.dark.primary,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 5,
+    },
+    continueWatchingText: {
+      color: "white",
+      marginLeft: 5,
+      fontSize: 12,
+      fontWeight: "bold",
+    },
+    continueLabel: {
+      color: Colors.dark.primary,
+      fontSize: 12,
+    },
+  });

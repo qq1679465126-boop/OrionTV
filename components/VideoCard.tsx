@@ -23,6 +23,7 @@ interface VideoCardProps extends React.ComponentProps<typeof TouchableOpacity> {
   onFocus?: () => void;
   onRecordDeleted?: () => void;
   api: API;
+  cardWidth?: number; // TV版海报宽度（按屏幕高度自适应），手机版不使用
 }
 
 /**
