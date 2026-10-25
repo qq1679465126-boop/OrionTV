@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useRef, useState } from "react";
-import { View, StyleSheet, ActivityIndicator, FlatList, Pressable, Animated, StatusBar, Platform, BackHandler, ToastAndroid } from "react-native";
+import { View, StyleSheet, ActivityIndicator, FlatList, Pressable, Animated, StatusBar, Platform, BackHandler, ToastAndroid, ScrollView, LayoutChangeEvent } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -18,6 +18,86 @@ import { useApiConfig, getApiConfigErrorMessage } from "@/hooks/useApiConfig";
 import { Colors } from "@/constants/Colors";
 
 const LOAD_MORE_THRESHOLD = 200;
+
+// 哔哩哔哩TV版形式：横向卡片行（一个栏目一排，行标题+横向滚动卡片）
+function ContentRow({
+  title,
+  items,
+  rowIndex,
+  onRowLayout,
+  onRowFocus,
+  cardWidth,
+  onRecordDeleted,
+}: {
+  title: string;
+  items: RowItem[];
+  rowIndex: number;
+  onRowLayout: (rowIndex: number, e: LayoutChangeEvent) => void;
+  onRowFocus: (rowIndex: number) => void;
+  cardWidth: number;
+  onRecordDeleted: () => void;
+}) {
+  const rowListRef = useRef<FlatList<RowItem> | null>(null);
+
+  if (items.length === 0) return null;
+
+  return (
+    <View style={tvRowStyles.rowOuter} onLayout={(e) => onRowLayout(rowIndex, e)}>
+      <ThemedText style={tvRowStyles.rowTitle}>{title}</ThemedText>
+      <FlatList
+        ref={rowListRef}
+        data={items}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyExtractor={(item, index) => `${item.source}-${item.id}-${index}`}
+        contentContainerStyle={tvRowStyles.rowListContent}
+        renderItem={({ item, index }) => (
+          <View style={{ width: cardWidth, marginRight: 16 }}>
+            <VideoCard
+              id={item.id}
+              source={item.source}
+              title={item.title}
+              poster={item.poster}
+              year={item.year}
+              rate={item.rate}
+              progress={item.progress}
+              playTime={item.play_time}
+              episodeIndex={item.episodeIndex}
+              sourceName={item.sourceName}
+              totalEpisodes={item.totalEpisodes}
+              api={api}
+              onRecordDeleted={onRecordDeleted}
+              hasTVPreferredFocus={rowIndex === 0 && index === 0}
+              onFocus={() => {
+                rowListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+                onRowFocus(rowIndex);
+              }}
+            />
+          </View>
+        )}
+      />
+    </View>
+  );
+}
+
+const tvRowStyles = StyleSheet.create({
+  rowsScroll: {
+    flex: 1,
+  },
+  rowOuter: {
+    marginBottom: 28,
+  },
+  rowTitle: {
+    color: "white",
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 12,
+    paddingHorizontal: 32,
+  },
+  rowListContent: {
+    paddingHorizontal: 32,
+  },
+});
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -41,8 +121,11 @@ export default function HomeScreen() {
     loading,
     loadingMore,
     error,
+    rowsData,
+    rowsLoading,
     fetchInitialData,
     loadMoreData,
+    fetchRowsData,
     selectCategory,
     refreshPlayRecords,
     clearError,
@@ -128,6 +211,46 @@ export default function HomeScreen() {
     }
   }, [apiConfigStatus.needsConfiguration, error, clearError]);
 
+  // 哔哩哔哩TV版形式：TV端按标签并行拉取多行栏目数据
+  useEffect(() => {
+    if (
+      deviceType === "tv" &&
+      apiConfigStatus.isConfigured &&
+      !apiConfigStatus.needsConfiguration &&
+      selectedCategory
+    ) {
+      fetchRowsData();
+    }
+  }, [
+    deviceType,
+    selectedCategory?.title,
+    apiConfigStatus.isConfigured,
+    apiConfigStatus.needsConfiguration,
+    fetchRowsData,
+  ]);
+
+  // TV端多行布局：焦点行居中滚动
+  const rowsScrollRef = useRef<ScrollView>(null);
+  const [rowsViewportH, setRowsViewportH] = useState(0);
+  const rowLayoutsRef = useRef<Record<number, { y: number; h: number }>>({});
+
+  const scrollRowToCenter = useCallback(
+    (rowIndex: number) => {
+      const layout = rowLayoutsRef.current[rowIndex];
+      if (!layout || rowsViewportH <= 0) return;
+      const targetY = Math.max(0, layout.y + layout.h / 2 - rowsViewportH / 2);
+      rowsScrollRef.current?.scrollTo({ y: targetY, animated: true });
+    },
+    [rowsViewportH]
+  );
+
+  const handleRowLayout = useCallback((rowIndex: number, e: LayoutChangeEvent) => {
+    rowLayoutsRef.current[rowIndex] = {
+      y: e.nativeEvent.layout.y,
+      h: e.nativeEvent.layout.height,
+    };
+  }, []);
+
   useEffect(() => {
     if (!loading && contentData.length > 0) {
       Animated.timing(fadeAnim, {
@@ -198,6 +321,93 @@ export default function HomeScreen() {
 
   // 检查是否需要显示API配置提示
   const shouldShowApiConfig = apiConfigStatus.needsConfiguration && selectedCategory && !selectedCategory.tags;
+
+  // 哔哩哔哩TV版形式：多行栏目渲染（每个标签一排横向卡片）
+  const renderTVHome = () => {
+    if (shouldShowApiConfig) {
+      return (
+        <View style={commonStyles.center}>
+          <ThemedText type="subtitle" style={{ padding: spacing, textAlign: "center" }}>
+            {getApiConfigErrorMessage(apiConfigStatus)}
+          </ThemedText>
+        </View>
+      );
+    }
+    if (apiConfigStatus.isValidating) {
+      return (
+        <View style={commonStyles.center}>
+          <ActivityIndicator size="large" />
+          <ThemedText type="subtitle" style={{ padding: spacing, textAlign: "center" }}>
+            正在验证服务器配置...
+          </ThemedText>
+        </View>
+      );
+    }
+    if (apiConfigStatus.error && !apiConfigStatus.isValid) {
+      return (
+        <View style={commonStyles.center}>
+          <ThemedText type="subtitle" style={{ padding: spacing, textAlign: "center" }}>
+            {apiConfigStatus.error}
+          </ThemedText>
+        </View>
+      );
+    }
+
+    const rows: { title: string; items: RowItem[] }[] = selectedCategory?.tags
+      ? selectedCategory.tags.map((tag) => ({ title: tag, items: rowsData[tag] || [] }))
+      : [{ title: selectedCategory?.title || "内容", items: contentData }];
+
+    const hasAnyItem = rows.some((r) => r.items.length > 0);
+
+    if (rowsLoading || loading) {
+      return (
+        <View style={commonStyles.center}>
+          <ActivityIndicator size="large" />
+        </View>
+      );
+    }
+    if (error) {
+      return (
+        <View style={commonStyles.center}>
+          <ThemedText type="subtitle" style={{ padding: spacing }}>
+            {error}
+          </ThemedText>
+        </View>
+      );
+    }
+    if (!hasAnyItem) {
+      return (
+        <View style={commonStyles.center}>
+          <ThemedText type="subtitle" style={{ padding: spacing }}>
+            {selectedCategory?.tags ? "该分类下暂无内容" : "暂无内容，去观看一些影片吧"}
+          </ThemedText>
+        </View>
+      );
+    }
+
+    return (
+      <ScrollView
+        ref={rowsScrollRef}
+        style={tvRowStyles.rowsScroll}
+        showsVerticalScrollIndicator={false}
+        onLayout={(e) => setRowsViewportH(e.nativeEvent.layout.height)}
+      >
+        {rows.map((row, i) => (
+          <ContentRow
+            key={`${selectedCategory?.title}-${row.title}`}
+            title={row.title}
+            items={row.items}
+            rowIndex={i}
+            onRowLayout={handleRowLayout}
+            onRowFocus={scrollRowToCenter}
+            cardWidth={responsiveConfig.cardWidth}
+            onRecordDeleted={fetchInitialData}
+          />
+        ))}
+        <View style={{ height: spacing * 3 }} />
+      </ScrollView>
+    );
+  };
 
   // TV端和平板端的顶部导航
   const renderHeader = () => {
@@ -308,6 +518,10 @@ export default function HomeScreen() {
         />
       </View>
 
+      {deviceType === "tv" ? (
+        renderTVHome()
+      ) : (
+        <>
       {/* 子分类标签 */}
       {selectedCategory && selectedCategory.tags && (
         <View style={dynamicStyles.categoryContainer}>
@@ -384,6 +598,8 @@ export default function HomeScreen() {
             ListFooterComponent={renderFooter}
           />
         </Animated.View>
+      )}
+        </>
       )}
     </ThemedView>
   );

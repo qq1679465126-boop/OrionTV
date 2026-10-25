@@ -84,8 +84,12 @@ interface HomeState {
   pageStart: number;
   hasMore: boolean;
   error: string | null;
+  // 哔哩哔哩TV版形式：多行栏目数据，key = 标签名
+  rowsData: Record<string, RowItem[]>;
+  rowsLoading: boolean;
   fetchInitialData: () => Promise<void>;
   loadMoreData: () => Promise<void>;
+  fetchRowsData: () => Promise<void>;
   selectCategory: (category: Category) => void;
   refreshPlayRecords: () => Promise<void>;
   clearError: () => void;
@@ -103,6 +107,53 @@ const useHomeStore = create<HomeState>((set, get) => ({
   pageStart: 0,
   hasMore: true,
   error: null,
+  rowsData: {},
+  rowsLoading: false,
+
+  // 哔哩哔哩TV版形式：并行拉取当前分类下所有标签的第一页，作为多行栏目数据
+  fetchRowsData: async () => {
+    const { selectedCategory } = get();
+
+    // 无标签的分类（最近播放/热门剧集/综艺/豆瓣Top250 等）：单行，复用 contentData
+    if (!selectedCategory.tags) {
+      set({ rowsData: {}, rowsLoading: false });
+      await get().fetchInitialData();
+      return;
+    }
+
+    const type = selectedCategory.type;
+    if (!type) {
+      set({ rowsData: {}, rowsLoading: false });
+      return;
+    }
+
+    set({ rowsLoading: true, rowsData: {}, error: null });
+    try {
+      const doubanType = type as "movie" | "tv";
+      const results = await Promise.all(
+        selectedCategory.tags.map(async (tag): Promise<{ tag: string; items: RowItem[] }> => {
+          try {
+            const result = await api.getDoubanData(doubanType, tag, 20, 0);
+            const items = result.list.map((item) => ({
+              ...item,
+              id: item.title,
+              source: "douban",
+            })) as RowItem[];
+            return { tag, items };
+          } catch {
+            return { tag, items: [] };
+          }
+        })
+      );
+      const map: Record<string, RowItem[]> = {};
+      for (const { tag, items } of results) {
+        map[tag] = items;
+      }
+      set({ rowsData: map, rowsLoading: false });
+    } catch {
+      set({ rowsLoading: false });
+    }
+  },
 
   fetchInitialData: async () => {
     const { apiBaseUrl } = useSettingsStore.getState();
