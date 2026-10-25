@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Image, ScrollView, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ThemedView } from "@/components/ThemedView";
@@ -57,6 +57,18 @@ export default function DetailScreen() {
       },
     });
   };
+
+  // 折叠功能：来源和剧集较多时默认只显示一部分，可展开全部
+  const [sourcesExpanded, setSourcesExpanded] = useState(false);
+  const [episodesExpanded, setEpisodesExpanded] = useState(false);
+  const SOURCE_LIMIT = 6;
+  const EPISODE_LIMIT = 30;
+  const displayedSources = sourcesExpanded ? searchResults : searchResults.slice(0, SOURCE_LIMIT);
+  const displayedEpisodes = detail
+    ? episodesExpanded
+      ? detail.episodes
+      : detail.episodes.slice(0, EPISODE_LIMIT)
+    : [];
 
   if (loading) {
     return <VideoLoadingAnimation showProgressBar={false} />;
@@ -145,7 +157,7 @@ export default function DetailScreen() {
               {!allSourcesLoaded && <ActivityIndicator style={{ marginLeft: 10 }} />}
             </View>
             <View style={dynamicStyles.sourceList}>
-              {searchResults.map((item, index) => {
+              {displayedSources.map((item, index) => {
                 const isSelected = detail?.source === item.source;
                 return (
                   <StyledButton
@@ -171,13 +183,22 @@ export default function DetailScreen() {
                 );
               })}
             </View>
+            {searchResults.length > SOURCE_LIMIT && (
+              <StyledButton
+                text={sourcesExpanded ? "收起来源" : `展开全部 ${searchResults.length} 个来源`}
+                variant="ghost"
+                onPress={() => setSourcesExpanded(!sourcesExpanded)}
+                style={dynamicStyles.expandButton}
+                textStyle={dynamicStyles.expandButtonText}
+              />
+            )}
           </View>
 
           {/* 剧集列表 */}
           <View style={dynamicStyles.episodesContainer}>
             <ThemedText style={dynamicStyles.episodesTitle}>播放列表</ThemedText>
             <View style={dynamicStyles.episodeList}>
-              {detail.episodes.map((episode, index) => (
+              {displayedEpisodes.map((episode, index) => (
                 <StyledButton
                   key={index}
                   style={dynamicStyles.episodeButton}
@@ -186,6 +207,15 @@ export default function DetailScreen() {
                   textStyle={dynamicStyles.episodeButtonText}
                 />
               ))}
+              {detail.episodes.length > EPISODE_LIMIT && (
+                <StyledButton
+                  text={episodesExpanded ? "收起剧集" : `展开全部 ${detail.episodes.length} 集`}
+                  variant="ghost"
+                  onPress={() => setEpisodesExpanded(!episodesExpanded)}
+                  style={dynamicStyles.expandButton}
+                  textStyle={dynamicStyles.expandButtonText}
+                />
+              )}
             </View>
           </View>
         </ScrollView>
@@ -235,7 +265,7 @@ export default function DetailScreen() {
                 {!allSourcesLoaded && <ActivityIndicator style={{ marginLeft: 10 }} />}
               </View>
               <View style={dynamicStyles.sourceList}>
-                {searchResults.map((item, index) => {
+                {displayedSources.map((item, index) => {
                   const isSelected = detail?.source === item.source;
                   return (
                     <StyledButton
@@ -261,11 +291,20 @@ export default function DetailScreen() {
                   );
                 })}
               </View>
+              {searchResults.length > SOURCE_LIMIT && (
+                <StyledButton
+                  text={sourcesExpanded ? "收起来源" : `展开全部 ${searchResults.length} 个来源`}
+                  variant="ghost"
+                  onPress={() => setSourcesExpanded(!sourcesExpanded)}
+                  style={dynamicStyles.expandButton}
+                  textStyle={dynamicStyles.expandButtonText}
+                />
+              )}
             </View>
             <View style={dynamicStyles.episodesContainer}>
               <ThemedText style={dynamicStyles.episodesTitle}>播放列表</ThemedText>
               <ScrollView contentContainerStyle={dynamicStyles.episodeList}>
-                {detail.episodes.map((episode, index) => (
+                {displayedEpisodes.map((episode, index) => (
                   <StyledButton
                     key={index}
                     style={dynamicStyles.episodeButton}
@@ -274,6 +313,15 @@ export default function DetailScreen() {
                     textStyle={dynamicStyles.episodeButtonText}
                   />
                 ))}
+                {detail.episodes.length > EPISODE_LIMIT && (
+                  <StyledButton
+                    text={episodesExpanded ? "收起剧集" : `展开全部 ${detail.episodes.length} 集`}
+                    variant="ghost"
+                    onPress={() => setEpisodesExpanded(!episodesExpanded)}
+                    style={dynamicStyles.expandButton}
+                    textStyle={dynamicStyles.expandButtonText}
+                  />
+                )}
               </ScrollView>
             </View>
           </View>
@@ -391,6 +439,15 @@ const createResponsiveStyles = (deviceType: string, spacing: number) => {
     playNowText: {
       fontSize: isTV ? 20 : 16,
       fontWeight: "bold",
+    },
+    expandButton: {
+      minHeight: isTV ? 56 : 40,
+      alignSelf: "flex-start",
+      marginTop: 8,
+    },
+    expandButtonText: {
+      fontSize: isTV ? 16 : 14,
+      color: "#aaaaaa",
     },
     description: {
       fontSize: isTV ? 18 : isMobile ? 13 : 14,
