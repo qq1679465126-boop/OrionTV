@@ -7,11 +7,12 @@ interface LivePlayerProps {
   streamUrl: string | null;
   channelTitle?: string | null;
   onPlaybackStatusUpdate: (status: AVPlaybackStatus) => void;
+  resizeMode?: ResizeMode;
 }
 
 const PLAYBACK_TIMEOUT = 15000; // 15 seconds
 
-export default function LivePlayer({ streamUrl, channelTitle, onPlaybackStatusUpdate }: LivePlayerProps) {
+export default function LivePlayer({ streamUrl, channelTitle, onPlaybackStatusUpdate, resizeMode }: LivePlayerProps) {
   const video = useRef<Video>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isTimeout, setIsTimeout] = useState(false);
@@ -89,7 +90,7 @@ export default function LivePlayer({ streamUrl, channelTitle, onPlaybackStatusUp
         source={{
           uri: streamUrl,
         }}
-        resizeMode={ResizeMode.CONTAIN}
+        resizeMode={resizeMode ?? ResizeMode.CONTAIN}
         shouldPlay
         onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
         onError={(e) => {
