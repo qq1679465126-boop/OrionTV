@@ -2,6 +2,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { Platform, View, StyleSheet } from "react-native";
 import Toast from "react-native-toast-message";
@@ -82,6 +83,8 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
+      {/* 沉浸模式：隐藏手机状态栏，App 画面铺满手机整块屏幕（投屏时黑边最小化） */}
+      <StatusBar hidden style="light" />
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
         <View style={styles.container}>
           <Stack>
