@@ -54,9 +54,12 @@ export const parseM3U = (m3uText: string): Channel[] => {
   return parsedChannels;
 };
 
-export const fetchAndParseM3u = async (m3uUrl: string): Promise<Channel[]> => {
+export const fetchAndParseM3u = async (m3uUrl: string, timeoutMs = 10000): Promise<Channel[]> => {
   try {
-    const response = await fetch(m3uUrl);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const response = await fetch(m3uUrl, { signal: controller.signal });
+    clearTimeout(timer);
     if (!response.ok) {
       throw new Error(`Failed to fetch M3U: ${response.statusText}`);
     }
