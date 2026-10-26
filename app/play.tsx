@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useCallback, memo, useMemo } from "react";
-import { StyleSheet, TouchableOpacity, BackHandler, AppState, AppStateStatus, View } from "react-native";
+import { StyleSheet, TouchableOpacity, BackHandler, AppState, AppStateStatus, View, Text } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Video } from "expo-av";
 import { useKeepAwake } from "expo-keep-awake";
@@ -17,9 +17,31 @@ import Toast from "react-native-toast-message";
 import usePlayerStore, { selectCurrentEpisode } from "@/stores/playerStore";
 import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
 import { useVideoHandlers } from "@/hooks/useVideoHandlers";
+import { useScreenFit, fitLabel } from "@/hooks/useScreenFit";
 import Logger from '@/utils/Logger';
 
 const logger = Logger.withTag('PlayScreen');
+
+// 比例切换按钮样式（悬浮在画面右上角，控制条显示时出现）
+const fitStyles = StyleSheet.create({
+  button: {
+    position: "absolute",
+    top: 60,
+    right: 20,
+    zIndex: 20,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+  },
+  buttonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+});
 
 // 优化的加载动画组件
 const LoadingContainer = memo(
@@ -128,6 +150,9 @@ export default function PlayScreen() {
   // TV遥控器处理 - 总是调用hook，但根据设备类型决定是否使用结果
   const tvRemoteHandler = useTVRemoteHandler();
 
+  // 画面比例适配（点播独立记忆）：控制条显示时可切换
+  const { mode: pointFitMode, cycle: cyclePointFit } = useScreenFit("point");
+
   // 优化的动态样式 - 使用useMemo避免重复计算
   const dynamicStyles = useMemo(() => createResponsiveStyles(deviceType), [deviceType]);
 
@@ -231,9 +256,16 @@ export default function PlayScreen() {
       >
         {/* 条件渲染Video组件：只有在有有效URL时才渲染 */}
         {currentEpisode?.url ? (
-          <Video ref={videoRef} style={dynamicStyles.videoPlayer} {...videoProps} />
+          <Video ref={videoRef} style={dynamicStyles.videoPlayer} {...videoProps} resizeMode={pointFitMode} />
         ) : (
           <LoadingContainer style={dynamicStyles.loadingContainer} currentEpisode={currentEpisode} />
+        )}
+
+        {/* 画面比例切换：控制条显示时可见，点击循环 适应/裁切全屏/拉伸全屏，选择自动记忆 */}
+        {showControls && (
+          <TouchableOpacity style={fitStyles.button} onPress={cyclePointFit}>
+            <Text style={fitStyles.buttonText}>比例：{fitLabel(pointFitMode)}</Text>
+          </TouchableOpacity>
         )}
 
         {showControls && deviceType === "tv" && (
