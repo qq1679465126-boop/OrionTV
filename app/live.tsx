@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, FlatList, StyleSheet, ActivityIndicator, Modal, useTVEventHandler, HWEvent, Text } from "react-native";
+import { View, FlatList, StyleSheet, ActivityIndicator, Modal, useTVEventHandler, HWEvent, Text, TextInput } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import LivePlayer from "@/components/LivePlayer";
 import { fetchAndParseM3u, getPlayableUrl, Channel } from "@/services/m3u";
 import { api } from "@/services/api";
@@ -11,6 +12,33 @@ import { getCommonResponsiveStyles } from "@/utils/ResponsiveStyles";
 import ResponsiveNavigation from "@/components/navigation/ResponsiveNavigation";
 import ResponsiveHeader from "@/components/navigation/ResponsiveHeader";
 import { DeviceUtils } from "@/utils/DeviceUtils";
+
+const LIVE_WATCH_HISTORY_KEY = "live_watch_history_v1";
+
+// 分组名清理：去掉装饰符号（如「•游戏「赛事」」→ 游戏·赛事）
+const cleanGroupName = (g: string) =>
+  (g || "")
+    .replace(/•/g, "")
+    .replace(/[「」]/g, "·")
+    .replace(/·{2,}/g, "·")
+    .trim();
+
+const loadWatchHistory = async (): Promise<Channel[]> => {
+  try {
+    const raw = await AsyncStorage.getItem(LIVE_WATCH_HISTORY_KEY);
+    return raw ? (JSON.parse(raw) as Channel[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveWatchHistory = async (list: Channel[]) => {
+  try {
+    await AsyncStorage.setItem(LIVE_WATCH_HISTORY_KEY, JSON.stringify(list.slice(0, 30)));
+  } catch {
+    // 忽略存储失败
+  }
+};
 
 export default function LiveScreen() {
   const { m3uUrl } = useSettingsStore();
@@ -29,6 +57,8 @@ export default function LiveScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isChannelListVisible, setIsChannelListVisible] = useState(false);
   const [channelTitle, setChannelTitle] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [watchHistory, setWatchHistory] = useState<Channel[]>([]);
   const titleTimer = useRef<NodeJS.Timeout | null>(null);
 
   const selectedChannelUrl = channels.length > 0 ? getPlayableUrl(channels[currentChannelIndex].url) : null;
@@ -85,7 +115,7 @@ export default function LiveScreen() {
       setChannels(parsedChannels);
 
       const groups: Record<string, Channel[]> = parsedChannels.reduce((acc, channel) => {
-        const groupName = channel.group || "Other";
+        const groupName = cleanGroupName(channel.group) || "其他";
         if (!acc[groupName]) {
           acc[groupName] = [];
         }
@@ -93,10 +123,20 @@ export default function LiveScreen() {
         return acc;
       }, {} as Record<string, Channel[]>);
 
+      // 观看历史作为第一个分组（最近观看）
+      const hist = await loadWatchHistory();
+      if (hist.length > 0) {
+        setWatchHistory(hist);
+        groups["最近观看"] = hist;
+      }
+
       const groupNames = Object.keys(groups);
+      const ordered = groupNames.includes("最近观看")
+        ? ["最近观看", ...groupNames.filter((g) => g !== "最近观看")]
+        : groupNames;
       setGroupedChannels(groups);
-      setChannelGroups(groupNames);
-      setSelectedGroup(groupNames[0] || "");
+      setChannelGroups(ordered);
+      setSelectedGroup(ordered[0] || "");
 
       if (parsedChannels.length > 0) {
         showChannelTitle(parsedChannels[0].name);
@@ -112,12 +152,27 @@ export default function LiveScreen() {
     titleTimer.current = setTimeout(() => setChannelTitle(null), 3000);
   };
 
+  // 记录观看历史（按 url 去重，最新的在前，最多30条）
+  const recordWatch = useCallback((channel: Channel) => {
+    if (!channel?.url) return;
+    setWatchHistory((prev) => {
+      const next = [{ ...channel }, ...prev.filter((c) => c.url !== channel.url)].slice(0, 30);
+      saveWatchHistory(next);
+      return next;
+    });
+  }, []);
+
   const handleSelectChannel = (channel: Channel) => {
-    const globalIndex = channels.findIndex((c) => c.id === channel.id);
+    // 按 url 匹配（观看历史里的频道用 url 对应回主列表）
+    const globalIndex = channels.findIndex((c) => c.url === channel.url);
     if (globalIndex !== -1) {
       setCurrentChannelIndex(globalIndex);
       showChannelTitle(channel.name);
       setIsChannelListVisible(false);
+      recordWatch(channel);
+    } else {
+      // 历史频道当前不在播出列表（如下播了）
+      showChannelTitle(`「${channel.name}」当前不在播出列表`);
     }
   };
 
@@ -130,8 +185,9 @@ export default function LiveScreen() {
           : (currentChannelIndex - 1 + channels.length) % channels.length;
       setCurrentChannelIndex(newIndex);
       showChannelTitle(channels[newIndex].name);
+      recordWatch(channels[newIndex]);
     },
-    [channels, currentChannelIndex]
+    [channels, currentChannelIndex, recordWatch]
   );
 
   const handleTVEvent = useCallback(
@@ -150,12 +206,22 @@ export default function LiveScreen() {
   // 动态样式
   const dynamicStyles = createResponsiveStyles(deviceType, spacing);
 
+  // 搜索：输入非空时在全部频道中按名称查找
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const isSearching = normalizedQuery.length > 0;
+  const searchResults = isSearching
+    ? channels.filter((c) => (c.name || "").toLowerCase().includes(normalizedQuery))
+    : [];
+  const displayChannels = isSearching
+    ? searchResults
+    : groupedChannels[selectedGroup] || [];
+
   const renderLiveContent = () => (
     <>
-      <LivePlayer 
-        streamUrl={selectedChannelUrl} 
-        channelTitle={channelTitle} 
-        onPlaybackStatusUpdate={() => {}} 
+      <LivePlayer
+        streamUrl={selectedChannelUrl}
+        channelTitle={channelTitle}
+        onPlaybackStatusUpdate={() => {}}
       />
       <Modal
         animationType="slide"
@@ -166,6 +232,19 @@ export default function LiveScreen() {
         <View style={dynamicStyles.modalContainer}>
           <View style={dynamicStyles.modalContent}>
             <Text style={dynamicStyles.modalTitle}>选择频道</Text>
+            <TextInput
+              style={dynamicStyles.searchInput}
+              placeholder="搜索频道…"
+              placeholderTextColor="#888"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+            />
+            {isSearching && (
+              <Text style={dynamicStyles.searchHint}>
+                {searchResults.length > 0 ? `找到 ${searchResults.length} 个频道` : "没有找到匹配的频道"}
+              </Text>
+            )}
             <View style={dynamicStyles.listContainer}>
               <View style={dynamicStyles.groupColumn}>
                 <FlatList
@@ -174,8 +253,11 @@ export default function LiveScreen() {
                   renderItem={({ item }) => (
                     <StyledButton
                       text={item}
-                      onPress={() => setSelectedGroup(item)}
-                      isSelected={selectedGroup === item}
+                      onPress={() => {
+                        setSearchQuery("");
+                        setSelectedGroup(item);
+                      }}
+                      isSelected={!isSearching && selectedGroup === item}
                       style={dynamicStyles.groupButton}
                       textStyle={dynamicStyles.groupButtonText}
                     />
@@ -187,7 +269,7 @@ export default function LiveScreen() {
                   <ActivityIndicator size="large" />
                 ) : (
                   <FlatList
-                    data={groupedChannels[selectedGroup] || []}
+                    data={displayChannels}
                     keyExtractor={(item, index) => `${item.id}-${item.group}-${index}`}
                     renderItem={({ item }) => (
                       <StyledButton
@@ -287,6 +369,22 @@ const createResponsiveStyles = (deviceType: string, spacing: number) => {
     },
     channelItemText: {
       fontSize: isTV ? 17 : isMobile ? 14 : 12,
+    },
+    searchInput: {
+      backgroundColor: "rgba(255, 255, 255, 0.1)",
+      borderRadius: isTV ? 12 : 8,
+      borderWidth: 1,
+      borderColor: "rgba(255, 255, 255, 0.3)",
+      color: "white",
+      fontSize: isTV ? 18 : 15,
+      paddingHorizontal: isTV ? 20 : 12,
+      paddingVertical: isTV ? 14 : 10,
+      marginBottom: spacing / 2,
+    },
+    searchHint: {
+      color: "#aaa",
+      fontSize: isTV ? 15 : 12,
+      marginBottom: spacing / 2,
     },
   });
 };
