@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, FlatList, StyleSheet, ActivityIndicator, Modal, useTVEventHandler, HWEvent, Text, TextInput } from "react-native";
+import { View, FlatList, StyleSheet, ActivityIndicator, Modal, useTVEventHandler, HWEvent, Text, TextInput, Pressable } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LivePlayer from "@/components/LivePlayer";
 import { fetchAndParseM3u, getPlayableUrl, Channel } from "@/services/m3u";
@@ -8,12 +8,36 @@ import { ThemedView } from "@/components/ThemedView";
 import { StyledButton } from "@/components/StyledButton";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useResponsiveLayout } from "@/hooks/useResponsiveLayout";
+import { useScreenFit, fitLabel } from "@/hooks/useScreenFit";
 import { getCommonResponsiveStyles } from "@/utils/ResponsiveStyles";
 import ResponsiveNavigation from "@/components/navigation/ResponsiveNavigation";
 import ResponsiveHeader from "@/components/navigation/ResponsiveHeader";
 import { DeviceUtils } from "@/utils/DeviceUtils";
 
 const LIVE_WATCH_HISTORY_KEY = "live_watch_history_v1";
+
+// 比例切换按钮样式（绝对定位在播放画面右上角）
+const fitStyles = StyleSheet.create({
+  button: {
+    position: "absolute",
+    top: 64,
+    right: 20,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+  },
+  buttonPressed: {
+    backgroundColor: "rgba(0,187,94,0.6)",
+  },
+  buttonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+});
 
 // 分组名清理：去掉装饰符号（如「•游戏「赛事」」→ 游戏·赛事）
 const cleanGroupName = (g: string) =>
@@ -67,6 +91,7 @@ export default function LiveScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchInputVisible, setIsSearchInputVisible] = useState(false);
   const [watchHistory, setWatchHistory] = useState<Channel[]>([]);
+  const { mode: liveFitMode, cycle: cycleLiveFit } = useScreenFit("live");
   const titleTimer = useRef<NodeJS.Timeout | null>(null);
 
   const selectedChannelUrl = channels.length > 0 ? getPlayableUrl(channels[currentChannelIndex].url) : null;
@@ -238,7 +263,15 @@ export default function LiveScreen() {
         streamUrl={selectedChannelUrl}
         channelTitle={channelTitle}
         onPlaybackStatusUpdate={() => {}}
+        resizeMode={liveFitMode}
       />
+      {/* 画面比例切换：点击循环 适应/裁切全屏/拉伸全屏，选择自动记忆 */}
+      <Pressable
+        onPress={cycleLiveFit}
+        style={({ pressed }) => [fitStyles.button, pressed && fitStyles.buttonPressed]}
+      >
+        <Text style={fitStyles.buttonText}>比例：{fitLabel(liveFitMode)}</Text>
+      </Pressable>
       <Modal
         animationType="slide"
         transparent={true}
