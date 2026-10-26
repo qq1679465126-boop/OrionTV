@@ -75,6 +75,23 @@ export interface ServerConfig {
   StorageType: "localstorage" | "redis" | string;
 }
 
+export interface LiveSource {
+  key: string;
+  name: string;
+  url: string;
+  channelNumber?: number;
+  disabled?: boolean;
+}
+
+export interface LiveChannel {
+  id: string;
+  tvgId: string;
+  name: string;
+  logo: string;
+  group: string;
+  url: string;
+}
+
 export class API {
   public baseURL: string = "";
 
@@ -155,6 +172,20 @@ export class API {
   async getServerConfig(): Promise<ServerConfig> {
     const response = await this._fetch("/api/server-config");
     return response.json();
+  }
+
+  // 获取 LunaTV 后台配置的所有启用直播源
+  async getLiveSources(): Promise<LiveSource[]> {
+    const response = await this._fetch("/api/live/sources");
+    const json = await response.json();
+    return json?.data ?? [];
+  }
+
+  // 获取某个直播源解析好的频道列表（服务端缓存，含分组）
+  async getLiveChannels(sourceKey: string): Promise<LiveChannel[]> {
+    const response = await this._fetch(`/api/live/channels?source=${encodeURIComponent(sourceKey)}`);
+    const json = await response.json();
+    return json?.data ?? [];
   }
 
   async getFavorites(key?: string): Promise<Record<string, Favorite> | Favorite | null> {

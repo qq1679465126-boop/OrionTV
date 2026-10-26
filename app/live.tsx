@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { View, FlatList, StyleSheet, ActivityIndicator, Modal, useTVEventHandler, HWEvent, Text } from "react-native";
 import LivePlayer from "@/components/LivePlayer";
 import { fetchAndParseM3u, getPlayableUrl, Channel } from "@/services/m3u";
+import { api } from "@/services/api";
 import { ThemedView } from "@/components/ThemedView";
 import { StyledButton } from "@/components/StyledButton";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -34,9 +35,53 @@ export default function LiveScreen() {
 
   useEffect(() => {
     const loadChannels = async () => {
-      if (!m3uUrl) return;
       setIsLoading(true);
-      const parsedChannels = await fetchAndParseM3u(m3uUrl);
+      let parsedChannels: Channel[] = [];
+
+      // 1) 优先加载 LunaTV 网页后台配置的直播源（登录后自动同步，后台加什么这里就有）
+      try {
+        const sources = await api.getLiveSources();
+        if (sources.length > 0) {
+          const channelLists = await Promise.all(
+            sources.map(async (src) => {
+              try {
+                // 优先用服务端解析好的频道（服务端缓存，速度快）
+                const remote = await api.getLiveChannels(src.key);
+                if (remote.length > 0) {
+                  return remote.map((ch) => ({
+                    id: `${src.key}-${ch.url}`,
+                    name: ch.name,
+                    url: ch.url,
+                    logo: ch.logo || "",
+                    group: ch.group || src.name,
+                  })) as Channel[];
+                }
+                // 服务端无缓存时，App 直接拉该源的 M3U 解析
+                return await fetchAndParseM3u(src.url);
+              } catch {
+                return [] as Channel[];
+              }
+            })
+          );
+          parsedChannels = channelLists.flat();
+        }
+      } catch {
+        // 后台不可用则走本地配置
+      }
+
+      // 2) 回退：本地自定义直播源地址
+      if (parsedChannels.length === 0 && m3uUrl) {
+        parsedChannels = await fetchAndParseM3u(m3uUrl);
+      }
+
+      // 按 URL 去重
+      const seen = new Set<string>();
+      parsedChannels = parsedChannels.filter((ch) => {
+        if (!ch.url || seen.has(ch.url)) return false;
+        seen.add(ch.url);
+        return true;
+      });
+
       setChannels(parsedChannels);
 
       const groups: Record<string, Channel[]> = parsedChannels.reduce((acc, channel) => {
