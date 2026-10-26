@@ -40,6 +40,13 @@ const saveWatchHistory = async (list: Channel[]) => {
   }
 };
 
+// 给 Promise 加超时，避免单个直播源拖死整个频道加载
+const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
+  Promise.race([
+    p,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
+  ]);
+
 export default function LiveScreen() {
   const { m3uUrl } = useSettingsStore();
   
@@ -58,10 +65,18 @@ export default function LiveScreen() {
   const [isChannelListVisible, setIsChannelListVisible] = useState(false);
   const [channelTitle, setChannelTitle] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchInputVisible, setIsSearchInputVisible] = useState(false);
   const [watchHistory, setWatchHistory] = useState<Channel[]>([]);
   const titleTimer = useRef<NodeJS.Timeout | null>(null);
 
   const selectedChannelUrl = channels.length > 0 ? getPlayableUrl(channels[currentChannelIndex].url) : null;
+
+  // 频道列表关闭时收起搜索输入框，下次打开回到搜索按钮模式
+  useEffect(() => {
+    if (!isChannelListVisible) {
+      setIsSearchInputVisible(false);
+    }
+  }, [isChannelListVisible]);
 
   useEffect(() => {
     const loadChannels = async () => {
@@ -69,14 +84,15 @@ export default function LiveScreen() {
       let parsedChannels: Channel[] = [];
 
       // 1) 优先加载 LunaTV 网页后台配置的直播源（登录后自动同步，后台加什么这里就有）
+      // 每个源独立超时：一个源慢/挂不影响其他源
       try {
-        const sources = await api.getLiveSources();
+        const sources = await withTimeout(api.getLiveSources(), 5000);
         if (sources.length > 0) {
           const channelLists = await Promise.all(
             sources.map(async (src) => {
               try {
-                // 优先用服务端解析好的频道（服务端缓存，速度快）
-                const remote = await api.getLiveChannels(src.key);
+                // 优先用服务端解析好的频道（服务端缓存，速度快），8秒拿不到就放弃
+                const remote = await withTimeout(api.getLiveChannels(src.key), 8000);
                 if (remote.length > 0) {
                   return remote.map((ch) => ({
                     id: `${src.key}-${ch.url}`,
@@ -86,8 +102,8 @@ export default function LiveScreen() {
                     group: ch.group || src.name,
                   })) as Channel[];
                 }
-                // 服务端无缓存时，App 直接拉该源的 M3U 解析
-                return await fetchAndParseM3u(src.url);
+                // 服务端无缓存时，App 直接拉该源的 M3U 解析（10秒超时）
+                return await fetchAndParseM3u(src.url, 10000);
               } catch {
                 return [] as Channel[];
               }
@@ -101,7 +117,7 @@ export default function LiveScreen() {
 
       // 2) 回退：本地自定义直播源地址
       if (parsedChannels.length === 0 && m3uUrl) {
-        parsedChannels = await fetchAndParseM3u(m3uUrl);
+        parsedChannels = await fetchAndParseM3u(m3uUrl, 10000);
       }
 
       // 按 URL 去重
@@ -232,14 +248,36 @@ export default function LiveScreen() {
         <View style={dynamicStyles.modalContainer}>
           <View style={dynamicStyles.modalContent}>
             <Text style={dynamicStyles.modalTitle}>选择频道</Text>
-            <TextInput
-              style={dynamicStyles.searchInput}
-              placeholder="搜索频道…"
-              placeholderTextColor="#888"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              returnKeyType="search"
-            />
+            {!isSearchInputVisible ? (
+              /* TV 遥控器友好：搜索入口做成按钮，按 OK 后弹出输入框（手机投屏可直接手写） */
+              <StyledButton
+                text="搜索频道"
+                onPress={() => setIsSearchInputVisible(true)}
+                style={dynamicStyles.searchTrigger}
+                textStyle={dynamicStyles.searchTriggerText}
+              />
+            ) : (
+              <View style={dynamicStyles.searchRow}>
+                <TextInput
+                  style={[dynamicStyles.searchInput, { flex: 1, marginBottom: 0 }]}
+                  placeholder="输入关键字…"
+                  placeholderTextColor="#888"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  returnKeyType="search"
+                  autoFocus
+                />
+                <StyledButton
+                  text="取消"
+                  onPress={() => {
+                    setSearchQuery("");
+                    setIsSearchInputVisible(false);
+                  }}
+                  style={dynamicStyles.searchCancel}
+                  textStyle={dynamicStyles.searchCancelText}
+                />
+              </View>
+            )}
             {isSearching && (
               <Text style={dynamicStyles.searchHint}>
                 {searchResults.length > 0 ? `找到 ${searchResults.length} 个频道` : "没有找到匹配的频道"}
@@ -380,6 +418,26 @@ const createResponsiveStyles = (deviceType: string, spacing: number) => {
       paddingHorizontal: isTV ? 20 : 12,
       paddingVertical: isTV ? 14 : 10,
       marginBottom: spacing / 2,
+    },
+    searchTrigger: {
+      marginBottom: spacing / 2,
+      minHeight: isTV ? 52 : 42,
+    },
+    searchTriggerText: {
+      fontSize: isTV ? 17 : 15,
+      fontWeight: "bold",
+    },
+    searchRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: spacing / 2,
+    },
+    searchCancel: {
+      marginLeft: spacing / 2,
+      minHeight: isTV ? 52 : 42,
+    },
+    searchCancelText: {
+      fontSize: isTV ? 15 : 14,
     },
     searchHint: {
       color: "#aaa",
